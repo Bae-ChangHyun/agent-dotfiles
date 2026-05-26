@@ -108,7 +108,7 @@ pull_step() {
             [[ -d "$home_item" ]] || continue
             local name=$(basename "${home_item%/}")
             [[ -L "${home_item%/}" ]] && continue
-            [[ "$name" == .system || "$name" == codex-primary-runtime ]] && continue
+            [[ "$name" == .system || "$name" == codex-primary-runtime || "$name" == symlink_* ]] && continue
             if [[ ! -d "$REPO/$base/$name" ]]; then
                 rm_ "$home_item"
                 rm -rf "$home_item"
@@ -139,18 +139,23 @@ push_step() {
     section "🔄" "DSYNC PUSH (호스트: $HOSTNAME_SHORT)"
 
     # 0. git pull (로케일 무관, hash 비교로 판정)
-    info "git pull (다른 PC 변경 먼저 받기)"
-    local before_hash after_hash
-    before_hash=$(git rev-parse HEAD 2>/dev/null || echo "")
-    if ! LC_ALL=C git pull --ff-only >/dev/null 2>&1; then
-        err "ff-only pull 실패"
-        return 1
-    fi
-    after_hash=$(git rev-parse HEAD 2>/dev/null || echo "")
-    if [[ "$before_hash" == "$after_hash" ]]; then
-        ok "이미 최신"
+    # `both` 모드에선 pull_step이 이미 pull 했으므로 skip
+    if [[ "${DSYNC_PUSH_SKIP_PULL:-0}" == "1" ]]; then
+        info "git pull skip (both 모드 — pull_step에서 이미 수행)"
     else
-        ok "$(git diff --name-only "$before_hash" "$after_hash" 2>/dev/null | wc -l | tr -d ' ') 파일 받음"
+        info "git pull (다른 PC 변경 먼저 받기)"
+        local before_hash after_hash
+        before_hash=$(git rev-parse HEAD 2>/dev/null || echo "")
+        if ! LC_ALL=C git pull --ff-only >/dev/null 2>&1; then
+            err "ff-only pull 실패"
+            return 1
+        fi
+        after_hash=$(git rev-parse HEAD 2>/dev/null || echo "")
+        if [[ "$before_hash" == "$after_hash" ]]; then
+            ok "이미 최신"
+        else
+            ok "$(git diff --name-only "$before_hash" "$after_hash" 2>/dev/null | wc -l | tr -d ' ') 파일 받음"
+        fi
     fi
 
     # 1. manifest sync
@@ -246,7 +251,7 @@ RC=0
 case "$MODE" in
     pull)   pull_step || RC=$? ;;
     push)   push_step || RC=$? ;;
-    both)   pull_step && push_step || RC=$? ;;
+    both)   pull_step && DSYNC_PUSH_SKIP_PULL=1 push_step || RC=$? ;;
     diff)   chezmoi diff ;;
     cd)     cd "$REPO" && exec "${SHELL:-bash}" ;;
     status)

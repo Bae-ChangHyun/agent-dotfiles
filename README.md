@@ -61,13 +61,19 @@ age-keygen -y ~/.config/chezmoi/key.txt
 
 이 public key를 메모.
 
-### 3단계: chezmoi init
+### 3단계: chezmoi init (실행 순서 중요)
 
 ```bash
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply <Your-User>/agent-dotfiles
 ```
 
-처음 init 시 **age public key**를 물어봄 — 2단계에서 메모한 거 붙여넣기.
+위 명령이 자동으로 수행하는 순서:
+1. chezmoi 바이너리 설치
+2. repo를 `~/.local/share/chezmoi/`로 clone
+3. **`age public key` 프롬프트 표시** ← 2단계 메모한 값(`age1...`) 붙여넣기
+4. `~/.config/chezmoi/chezmoi.toml` 자동 생성 (recipient 박힘)
+5. dotfile 적용 (`~/.claude/`, `~/.codex/`)
+6. `run_once_after_99-bootstrap.sh` 자동 실행 → `bootstrap.sh` 인터랙티브 시작
 
 이 한 줄이:
 - chezmoi 설치

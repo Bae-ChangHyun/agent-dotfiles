@@ -39,13 +39,14 @@ expand_path() {
     echo "$p"
 }
 
-# stdio MCP의 경로 존재 검증 — args 안에 절대경로 토큰 + 미해결 placeholder 모두 catch
-verify_paths() {
-    local args_json="$1"
+# stdio MCP의 경로 존재 검증 — 이미 expand된 args 배열을 받아서 중복 expand 없이 검증
+# Usage: verify_paths_arr "token1" "token2" ...
+verify_paths_arr() {
     local missing=""
-    while IFS= read -r token; do
+    local token
+    for token in "$@"; do
         [[ -z "$token" ]] && continue
-        # 미해결 placeholder ({{VARNAME}}가 남아있음 = env에 정의 안 됨)
+        # 미해결 placeholder
         if [[ "$token" == *'{{'*'}}'* ]]; then
             missing+="$token  (미해결 placeholder — env에 변수 정의 필요)"$'\n'
             continue
@@ -56,7 +57,7 @@ verify_paths() {
                 missing+="$token"$'\n'
             fi
         fi
-    done < <(echo "$args_json" | jq -r '.[]?' 2>/dev/null | while read -r t; do expand_path "$t"; done)
+    done
     printf '%s' "$missing"
 }
 
@@ -64,7 +65,12 @@ count=$(jq '.servers | length' "$MCP_JSON")
 [[ "$count" == "0" ]] && { printf '  %s✓%s MCP 서버 manifest 비어있음 — skip\n' "$C_OK" "$C_OFF"; exit 0; }
 
 # 현재 등록된 MCP 서버 목록
-HAVE_MCP=$(claude mcp list 2>/dev/null | awk '/^[a-zA-Z0-9_-]+/{print $1}' | sort -u || true)
+# `claude mcp list` 출력 형식: "<name>: <url-or-cmd> - <status>" (콜론 구분자)
+# 명시적으로 콜론 앞 토큰만 추출. 헤더 라인은 콜론 없으므로 자연 제외.
+HAVE_MCP=$(claude mcp list 2>/dev/null \
+    | grep -E '^[^[:space:]:]+:' \
+    | awk -F: '{print $1}' \
+    | sort -u || true)
 
 # counter 변수 제거 (pipe subshell)
 jq -c '.servers[]' "$MCP_JSON" | while read -r srv; do
@@ -102,8 +108,8 @@ jq -c '.servers[]' "$MCP_JSON" | while read -r srv; do
                 continue
             fi
 
-            # 2) args 안의 절대경로 검증
-            missing=$(verify_paths "$args_json")
+            # 2) args 안의 절대경로 검증 (이미 expand된 args_arr 사용)
+            missing=$(verify_paths_arr "${args_arr[@]}")
             if [[ -n "$missing" ]]; then
                 printf '  %s⚠%s %s — 의존 경로가 이 PC에 없음:\n' "$C_WARN" "$C_OFF" "$name"
                 printf '%s' "$missing" | sed "s|^|    ${C_WARN}- ${C_OFF}|"

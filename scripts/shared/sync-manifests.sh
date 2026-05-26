@@ -55,8 +55,15 @@ fi
 #     args 안의 "/Users/bch/Project/vault/..." → "{{OBSIDIAN_SYNC}}/..."
 # 그리고 install-mcp.sh가 pull 시 그 PC의 env로 다시 expand.
 # 추가로 $HOME → {{HOME}} 도 항상 처리.
-SRC_MCP="$HOME/.claude/.claude.json"
-[[ ! -f "$SRC_MCP" ]] && SRC_MCP="$HOME/.claude.json"
+# Claude Code 버전에 따라 .claude.json 위치 다름. 더 최신 수정시간 파일 우선.
+SRC_MCP=""
+for candidate in "$HOME/.claude.json" "$HOME/.claude/.claude.json"; do
+    if [[ -f "$candidate" ]]; then
+        if [[ -z "$SRC_MCP" ]] || [[ "$candidate" -nt "$SRC_MCP" ]]; then
+            SRC_MCP="$candidate"
+        fi
+    fi
+done
 OUT_MCP="$REPO/manifests/claude/mcp.json"
 
 if [[ -f "$SRC_MCP" ]]; then
@@ -89,9 +96,10 @@ if [[ -f "$SRC_MCP" ]]; then
         ]
     }' "$SRC_MCP" > "$tmp_json"
 
-    # sed 메타문자 이스케이프 — 구분자 # 사용하므로 #도 이스케이프 (대신 |는 안 함)
+    # sed 정규식 메타문자 + 구분자(#) 이스케이프
+    # BSD/GNU 양쪽 호환되는 단순한 패턴
     sed_escape() {
-        printf '%s' "$1" | sed -e 's/[]\/$*.^[#]/\\&/g'
+        printf '%s' "$1" | sed -e 's/[\\\/&]/\\&/g' -e 's/[.*^$]/\\&/g' -e 's/\[/\\[/g' -e 's/\]/\\]/g' -e 's/#/\\#/g'
     }
 
     # 2차: env 변수 값을 {{VARNAME}}로 역치환 — 긴 경로 먼저
