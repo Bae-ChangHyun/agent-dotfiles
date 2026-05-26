@@ -18,17 +18,19 @@ jq -c '.projects[]' "$MANIFEST" | while read -r p; do
     repo=$(echo "$p" | jq -r '.repo')
     raw_path=$(echo "$p" | jq -r '.path')
     # 안전한 expand: ${VAR:-default}와 $HOME만 정규식으로 처리. eval은 코드 인젝션 위험.
-    # ${VAR:-default} 패턴 처리
-    if [[ "$raw_path" =~ \$\{([A-Za-z_][A-Za-z0-9_]*):-([^}]*)\} ]]; then
-        var="${BASH_REMATCH[1]}"
-        default="${BASH_REMATCH[2]}"
-        value="${!var:-$default}"
-        # default 안에 $HOME 등이 있으면 다시 한 번 처리
-        value="${value//\$HOME/$HOME}"
-        path="${raw_path/\$\{${var}:-${default}\}/$value}"
-    else
-        path="$raw_path"
-    fi
+    # ${VAR:-default} 패턴이 여러 개 있을 수 있으므로 반복 처리 (최대 10회 안전 한계)
+    path="$raw_path"
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        if [[ "$path" =~ \$\{([A-Za-z_][A-Za-z0-9_]*):-([^}]*)\} ]]; then
+            var="${BASH_REMATCH[1]}"
+            default="${BASH_REMATCH[2]}"
+            value="${!var:-$default}"
+            value="${value//\$HOME/$HOME}"
+            path="${path/\$\{${var}:-${default}\}/$value}"
+        else
+            break
+        fi
+    done
     # 남은 $HOME 처리
     path="${path//\$HOME/$HOME}"
     # 안전성 검증: shell 메타문자 있으면 차단

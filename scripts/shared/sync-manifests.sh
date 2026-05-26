@@ -82,6 +82,7 @@ if [[ -f "$SRC_MCP" ]]; then
 
     # 1차: jq로 기본 추출 (치환 X)
     tmp_json=$(mktemp)
+    trap 'rm -f "$tmp_json" "$tmp_json.bak"' EXIT
     jq '{
         "$comment": "자동 생성. {{...}} placeholder는 ~/.config/agent-dotfiles/env 변수로 expand됨.",
         servers: [

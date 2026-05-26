@@ -98,7 +98,7 @@ fi
 if [[ $ONLY_CODEX -eq 0 ]]; then
     step $N $TOTAL "Claude Code 설정 적용 (CLAUDE.md, settings.json, skills, hooks, memory)"
     if [[ -n "${CHEZMOI:-}" ]]; then
-        echo "  ${C_OK}✓ chezmoi run 안 — 이미 적용됨, skip${C_OFF}"
+        echo "  ${C_OK}✓ chezmoi init 안에서 호출됨 — 파일은 이미 apply됨, 재실행 skip${C_OFF}"
     elif ask "  ~/.claude/ 에 dot_claude/ 적용?"; then
         run "claude-apply" chezmoi apply ~/.claude
     else echo "  ${C_SKIP}건너뜀${C_OFF}"; fi
@@ -127,7 +127,7 @@ fi
 if [[ $ONLY_CLAUDE -eq 0 ]]; then
     step $N $TOTAL "Codex 설정 적용 (AGENTS.md, config.toml, skills) — 시크릿 자동 복호화"
     if [[ -n "${CHEZMOI:-}" ]]; then
-        echo "  ${C_OK}✓ chezmoi run 안 — 이미 적용됨, skip${C_OFF}"
+        echo "  ${C_OK}✓ chezmoi init 안에서 호출됨 — 파일은 이미 apply됨, 재실행 skip${C_OFF}"
     elif ask "  ~/.codex/ 에 dot_codex/ 적용?"; then
         run "codex-apply" chezmoi apply ~/.codex
     else echo "  ${C_SKIP}건너뜀${C_OFF}"; fi
