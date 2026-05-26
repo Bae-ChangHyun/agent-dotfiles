@@ -85,22 +85,37 @@ jq -c '.servers[]' "$MCP_JSON" | while read -r srv; do
             # 1) command 자체 존재? (절대경로 또는 PATH)
             if [[ "$command" == /* || "$command" == "$HOME"/* ]]; then
                 if [[ ! -x "$command" ]]; then
-                    printf '  %s⚠%s %s — command 경로 없음/실행불가: %s\n' "$C_WARN" "$C_OFF" "$name" "$command"
-                    printf '    %sskip (이 PC에 해당 도구 미설치)%s\n' "$C_DIM" "$C_OFF"
+                    printf '  %s⚠%s %s — command 경로 없음: %s\n' "$C_WARN" "$C_OFF" "$name" "$command"
+                    printf '    %s→ 이 PC에 해당 바이너리/앱 설치 필요. skip%s\n' "$C_DIM" "$C_OFF"
                     continue
                 fi
             elif ! command -v "$command" >/dev/null 2>&1; then
                 printf '  %s⚠%s %s — command "%s" PATH에서 못 찾음\n' "$C_WARN" "$C_OFF" "$name" "$command"
-                printf '    %sskip%s\n' "$C_DIM" "$C_OFF"
+                printf '    %s→ 해당 CLI 설치 후 PATH에 추가. skip%s\n' "$C_DIM" "$C_OFF"
                 continue
             fi
 
             # 2) args 안의 절대경로 검증
             missing=$(verify_paths "$args_json")
             if [[ -n "$missing" ]]; then
+                # 원본 args에 {{VAR}} placeholder 있었나 확인 (있으면 env 미정의 가능성)
+                placeholders=$(echo "$args_json" | jq -r '.[]?' 2>/dev/null | grep -oE '\{\{[A-Z_]+\}\}' | sort -u | tr '\n' ' ')
+
                 printf '  %s⚠%s %s — 의존 경로가 이 PC에 없음:\n' "$C_WARN" "$C_OFF" "$name"
                 echo -e "$missing" | sed "s|^|    ${C_WARN}- ${C_OFF}|"
-                printf '    %sskip — 경로를 만들거나 manifest를 이 PC에 맞게 수정 필요%s\n' "$C_DIM" "$C_OFF"
+
+                if [[ -n "$placeholders" ]]; then
+                    printf '    %s→ 해결 방법 중 택1:%s\n' "$C_DIM" "$C_OFF"
+                    printf '      %s(a) ~/.config/agent-dotfiles/env 에 변수 정의:%s\n' "$C_DIM" "$C_OFF"
+                    for ph in $placeholders; do
+                        varname="${ph//[\{\}]/}"
+                        printf '          %sexport %s="/your/path"%s\n' "$C_DIM" "$varname" "$C_OFF"
+                    done
+                    printf '      %s(b) 해당 경로에 폴더/심볼릭링크 생성%s\n' "$C_DIM" "$C_OFF"
+                    printf '      %s(c) 이 PC에서 이 MCP 안 쓰면 무시%s\n' "$C_DIM" "$C_OFF"
+                else
+                    printf '    %s→ 해결: (a) 폴더 만들기 (b) manifest를 이 PC 경로로 수정%s\n' "$C_DIM" "$C_OFF"
+                fi
                 continue
             fi
 
