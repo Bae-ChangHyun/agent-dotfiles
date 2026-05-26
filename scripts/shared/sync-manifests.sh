@@ -51,8 +51,8 @@ fi
 
 # ---- 3. MCP 서버 ----
 # 사용자가 env에 정의한 모든 변수의 값을 placeholder {{VARNAME}}로 역치환.
-# 예: env에 OBSIDIAN_SYNC=/Users/bch/Project/vault 정의 시,
-#     args 안의 "/Users/bch/Project/vault/..." → "{{OBSIDIAN_SYNC}}/..."
+# 예: env에 FOO_PATH=$HOME/some/path 정의 시,
+#     args 안의 "$HOME/some/path/..." → "{{FOO_PATH}}/..."
 # 그리고 install-mcp.sh가 pull 시 그 PC의 env로 다시 expand.
 # 추가로 $HOME → {{HOME}} 도 항상 처리.
 # Claude Code 버전에 따라 .claude.json 위치 다름. 더 최신 수정시간 파일 우선.

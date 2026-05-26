@@ -74,9 +74,14 @@ pull_step() {
     section "📥" "PULL — GitHub → 홈"
 
     info "git pull origin"
-    local before_hash after_hash
+    local before_hash after_hash pull_rc
     before_hash=$(git rev-parse HEAD 2>/dev/null || echo "")
-    if ! LC_ALL=C git pull --ff-only 2>&1 | sed 's/^/    /'; then
+    # pipefail로 git의 exit code가 sed에 묻히는 것 방지 — 별도 변수로 저장
+    LC_ALL=C git pull --ff-only > /tmp/dsync-pull-$$.log 2>&1
+    pull_rc=$?
+    sed 's/^/    /' < /tmp/dsync-pull-$$.log
+    rm -f /tmp/dsync-pull-$$.log
+    if [[ $pull_rc -ne 0 ]]; then
         err "ff-only pull 실패 — 수동 merge 필요"
         return 1
     fi
@@ -100,6 +105,8 @@ pull_step() {
     fi
 
     section "🗑️ " "CLEANUP — 다른 PC에서 삭제된 스킬/팀 자동 정리"
+    # 안전 정책: chezmoi가 한 번이라도 추적한 적 있는 항목만 삭제 후보.
+    # 마켓플레이스/CLI가 자동 생성한 폴더(chezmoi 모름)는 절대 안 건드림.
     local removed=0
     for base in dot_claude/skills dot_codex/skills; do
         local home_base="$HOME/.${base#dot_}"
@@ -109,7 +116,9 @@ pull_step() {
             local name=$(basename "${home_item%/}")
             [[ -L "${home_item%/}" ]] && continue
             [[ "$name" == .system || "$name" == codex-primary-runtime || "$name" == symlink_* ]] && continue
-            if [[ ! -d "$REPO/$base/$name" ]]; then
+            # dotfiles에 없음 + chezmoi가 추적한 적 있음 = 다른 PC에서 명시 삭제됨 → 삭제 OK
+            # dotfiles에 없음 + chezmoi 모름 = 외부에서 만든 폴더 → 보존
+            if [[ ! -d "$REPO/$base/$name" ]] && [[ -n "$(chezmoi managed "${home_item%/}" 2>/dev/null)" ]]; then
                 rm_ "$home_item"
                 rm -rf "$home_item"
                 ((removed++)) || true
@@ -264,9 +273,23 @@ case "$MODE" in
         ;;
     rm|remove)
         target="${2:-}"
-        [[ -z "$target" ]] && { echo "Usage: dsync rm <path>"; exit 1; }
-        [[ "$target" != /* ]] && target="$PWD/$target"
+        [[ -z "$target" ]] && { echo "Usage: dsync rm <absolute-path>"; exit 1; }
+        # 상대경로 거부 — script 시작에서 cd "$REPO" 했으므로 $PWD가 repo 안. 위험.
+        # 사용자 의도가 명확하도록 절대경로 또는 ~/ 시작만 허용.
+        if [[ "$target" == \~/* ]]; then
+            target="$HOME/${target#\~/}"
+        fi
+        if [[ "$target" != /* ]]; then
+            echo "❌ 절대경로 또는 ~/ 시작 필요. 예: dsync rm ~/.claude/skills/old"
+            exit 1
+        fi
+        # $HOME 밖이면 거부 (실수 방지)
+        if [[ "$target" != "$HOME"/* ]]; then
+            echo "❌ $HOME 밖 경로는 거부: $target"
+            exit 1
+        fi
         section "🗑️ " "REMOVE: $target"
+        # 안전 순서: chezmoi forget 먼저, 그 다음 rm
         chezmoi forget --force "$target" >/dev/null 2>&1 || true
         rm -rf "$target"
         cd "$REPO"

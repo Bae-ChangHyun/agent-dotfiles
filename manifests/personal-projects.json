@@ -1,5 +1,6 @@
 {
-  "$comment": "본인이 만든 git 프로젝트들. 새 PC에 자동 clone + setup. PROJECTS_ROOT 환경변수 또는 기본값($HOME/Project) 사용.",
+  "$comment": "본인 git 프로젝트들. 새 PC에 자동 clone + 초기 setup. PROJECTS_ROOT env 또는 기본값 사용.",
+  "$security": "⚠️ setup 명령은 git에 평문 commit됨. fork/협업 시 악의적 명령 주입 위험. dsync는 기본적으로 setup 실행 안 함. 실행하려면 DSYNC_AUTO_SETUP=1 명시 + manifest 신뢰 확인 필수.",
   "$example": "아래 예시를 본인 repo로 교체. private repo는 gh CLI 인증 필요.",
   "projects": [
     {
