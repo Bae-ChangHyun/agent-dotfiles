@@ -79,8 +79,13 @@ jq -c '.servers[]' "$MCP_JSON" | while read -r srv; do
             command=$(echo "$srv" | jq -r '.command')
             command=$(expand_path "$command")
             args_json=$(echo "$srv" | jq '.args // []')
-            args=$(echo "$args_json" | jq -r --arg home "$HOME" --arg pr "$PROJECTS_ROOT" --arg ov "$OBSIDIAN_SYNC" \
-                'map(gsub("\\{\\{HOME\\}\\}"; $home) | gsub("\\{\\{PROJECTS_ROOT\\}\\}"; $pr) | gsub("\\{\\{OBSIDIAN_VAULT\\}\\}"; $ov)) | join(" ")')
+            # 각 arg를 bash expand_path로 placeholder 치환 (env에 정의된 모든 변수)
+            args=""
+            while IFS= read -r token; do
+                expanded=$(expand_path "$token")
+                args+="$expanded "
+            done < <(echo "$args_json" | jq -r '.[]?' 2>/dev/null)
+            args="${args% }"
 
             # 1) command 자체 존재? (절대경로 또는 PATH)
             if [[ "$command" == /* || "$command" == "$HOME"/* ]]; then
