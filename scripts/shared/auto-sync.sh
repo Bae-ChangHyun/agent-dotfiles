@@ -194,8 +194,7 @@ case "$MODE" in
         info "branch:  $(git branch --show-current)"
         info "ahead:   $(git rev-list --count @{u}..HEAD 2>/dev/null || echo 0) 개 commit (push 필요)"
         info "behind:  $(git rev-list --count HEAD..@{u} 2>/dev/null || echo 0) 개 commit (pull 필요)"
-        local diff_lines=$(chezmoi diff 2>/dev/null | wc -l)
-        info "홈↔dot:  $diff_lines lines diff"
+        info "홈↔dot:  $(chezmoi diff 2>/dev/null | wc -l) lines diff"
         ;;
     rm|remove)
         target="${2:-}"
