@@ -1,0 +1,5 @@
+{
+  "$comment": "Claude Code 마켓플레이스 인벤토리. dsync push 시 자동으로 본인 설정 반영됨.",
+  "$note": "비어있어도 OK — 처음 dsync push 하면 ~/.claude/plugins/known_marketplaces.json 기반으로 자동 채워짐.",
+  "marketplaces": []
+}

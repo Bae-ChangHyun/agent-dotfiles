@@ -1,0 +1,13 @@
+{
+  "$comment": "본인이 만든 git 프로젝트들. 새 PC에 자동 clone + setup. PROJECTS_ROOT 환경변수 또는 기본값($HOME/Project) 사용.",
+  "$example": "아래 예시를 본인 repo로 교체. private repo는 gh CLI 인증 필요.",
+  "projects": [
+    {
+      "name": "example-project",
+      "repo": "<your-github-user>/example-project",
+      "path": "${PROJECTS_ROOT:-$HOME/Project}/example-project",
+      "setup": ["echo '여기에 setup 명령들 (예: uv sync, npm install)'"],
+      "note": "이 entry는 예시. 본인 프로젝트로 교체하거나 삭제."
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# dsync — dotfiles 한 줄 sync wrapper.
+#   dsync         → push (가장 자주 쓰는 거)
+#   dsync push    → 홈 → dotfiles → GitHub
+#   dsync pull    → GitHub → 홈
+#   dsync both    → pull + push
+#   dsync diff    → 변경 미리보기
+#   dsync cd      → repo로 이동 후 새 셸
+#   dsync status  → 현재 상태 한눈에
+exec "$HOME/.local/share/chezmoi/scripts/shared/auto-sync.sh" "${1:-push}" "${@:2}"

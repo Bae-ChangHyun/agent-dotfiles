@@ -1,0 +1,17 @@
+{{/*
+chezmoi config — 첫 setup 시 본인의 age recipient를 받음.
+
+새 사용자 시나리오:
+  1. fork this repo
+  2. age-keygen -o ~/.config/chezmoi/key.txt   (마스터 키 생성)
+  3. age-keygen -y ~/.config/chezmoi/key.txt   (public key 확인 → 아래 recipient에 박기)
+  4. chezmoi init --apply <자기-username>/agent-dotfiles
+*/ -}}
+
+{{- $recipient := promptStringOnce . "age.recipient" "age public key (age1...로 시작, age-keygen -y ~/.config/chezmoi/key.txt 결과)" "" -}}
+
+encryption = "age"
+
+[age]
+    identity = "{{ .chezmoi.homeDir }}/.config/chezmoi/key.txt"
+    recipient = "{{ $recipient }}"

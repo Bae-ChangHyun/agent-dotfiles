@@ -1,0 +1,4 @@
+{
+  "$comment": "Claude Code MCP 서버 인벤토리. dsync push 시 자동으로 ~/.claude.json mcpServers에서 채워짐.",
+  "servers": []
+}

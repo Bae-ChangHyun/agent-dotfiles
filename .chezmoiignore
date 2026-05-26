@@ -1,0 +1,75 @@
+# chezmoi가 ~로 적용하지 않을 경로
+# (이 repo 안에는 있지만 홈 디렉토리에 깔리지 않음)
+
+README.md
+bootstrap.sh
+.gitignore
+docs/**
+manifests/**
+scripts/**
+secrets/**
+
+# 휘발성 파일들 — 가져왔지만 동기화 대상 아님
+dot_claude/cache/**
+dot_claude/sessions/**
+dot_claude/shell-snapshots/**
+dot_claude/transcripts/**
+dot_claude/telemetry/**
+dot_claude/usage-data/**
+dot_claude/history.jsonl
+dot_claude/stats-cache.json
+dot_claude/mcp-needs-auth-cache.json
+dot_claude/file-history/**
+dot_claude/paste-cache/**
+dot_claude/downloads/**
+dot_claude/backups/**
+dot_claude/session-env/**
+dot_claude/tasks/**
+dot_claude/channels/**
+dot_claude/ide/**
+dot_claude/plans/**
+dot_claude/statsig/**
+dot_claude/debug/**
+dot_claude/.firecrawl/**
+dot_claude/CLAUDE.bak
+dot_claude/settings.json.bak
+dot_claude/settings.json.orig
+dot_claude/settings.local.json.backup.*
+
+# Plugins cache는 manifests로 재설치 (동기화 X)
+dot_claude/plugins/cache/**
+dot_claude/plugins/data/**
+dot_claude/plugins/marketplaces/**
+dot_claude/plugins/plugin-catalog-cache.json
+dot_claude/plugins/blocklist.json
+
+# 시크릿 — chezmoi 템플릿으로 처리하므로 원본은 무시
+dot_claude/.credentials.json
+dot_claude/settings.local.json
+
+# 외부 마켓플레이스/시스템에서 자동 생성되는 것 (절대 추적 안 함)
+dot_claude/skills/symlink_*
+dot_codex/skills/dot_system/**
+dot_codex/skills/codex-primary-runtime/**
+
+# Codex 휘발성
+dot_codex/.tmp/**
+dot_codex/backups/**
+dot_codex/cache/**
+dot_codex/generated_images/**
+dot_codex/log/**
+dot_codex/memories/**
+dot_codex/sessions/**
+dot_codex/sessions-bak-tokscale-move/**
+dot_codex/shell_snapshots/**
+dot_codex/tmp/**
+dot_codex/history.jsonl
+dot_codex/session_index.jsonl
+dot_codex/installation_id
+dot_codex/.personality_migration
+dot_codex/models_cache.json
+dot_codex/auth.json
+dot_codex/goals_*.sqlite*
+dot_codex/logs_*.sqlite*
+dot_codex/state_*.sqlite*
+dot_codex/version.json

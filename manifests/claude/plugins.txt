@@ -1,0 +1,3 @@
+# Claude Code 활성 user-scope 플러그인.
+# dsync push 시 자동으로 ~/.claude/plugins/installed_plugins.json 기반으로 채워짐.
+# 형식: <plugin>@<marketplace>  <scope>

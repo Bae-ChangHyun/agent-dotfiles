@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# chezmoi apply 가 끝난 후 자동 실행되는 hook.
+# 새 PC에서 `chezmoi init --apply` 한 줄로 부트스트랩까지 흘러가게 만듦.
+#
+# 이름 규칙:
+#   run_once_   → 머신당 1회만 실행 (hash 추적)
+#   after_      → 다른 파일들이 모두 적용된 다음
+#   99-         → 알파벳순 마지막
+#
+# Skip 방법:
+#   CHEZMOI_SKIP_BOOTSTRAP=1 chezmoi apply
+set -euo pipefail
+
+BOOTSTRAP="{{ .chezmoi.sourceDir }}/bootstrap.sh"
+
+# 비활성화 플래그
+if [[ "${CHEZMOI_SKIP_BOOTSTRAP:-0}" == "1" ]]; then
+    echo "[chezmoi hook] CHEZMOI_SKIP_BOOTSTRAP=1 — bootstrap 건너뜀"
+    exit 0
+fi
+
+# 비대화형 (CI, pipe 등)이면 안내만
+if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
+    echo "[chezmoi hook] 비대화형 환경 — 수동 실행 필요:"
+    echo "                bash $BOOTSTRAP"
+    exit 0
+fi
+
+[[ -x "$BOOTSTRAP" ]] || chmod +x "$BOOTSTRAP"
+
+echo ""
+echo "════════════════════════════════════════════════════"
+echo "  ✓ chezmoi apply 완료"
+echo "  이어서 플러그인/MCP/바이너리도 설치할까요?"
+echo "════════════════════════════════════════════════════"
+read -r -p "  bootstrap.sh 실행? [Y/n]: " ans </dev/tty
+if [[ -z "$ans" || "$ans" =~ ^[Yy] ]]; then
+    bash "$BOOTSTRAP"
+else
+    echo "[skip] 나중에 직접: bash $BOOTSTRAP"
+fi
