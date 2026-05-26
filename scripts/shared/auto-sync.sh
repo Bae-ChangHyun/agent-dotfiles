@@ -86,11 +86,18 @@ pull_step() {
     done
     [[ $removed -eq 0 ]] && ok "삭제할 폴더 없음" || ok "$removed 개 폴더 정리"
 
-    section "🧩" "PLUGIN/MCP SYNC — manifest 기준 install/uninstall"
+    section "🧩" "PLUGIN SYNC — manifest 기준 install/uninstall"
     if ! command -v claude >/dev/null 2>&1; then
-        warn "claude CLI 없음 → skip (PATH 미설정 또는 Desktop 앱만 설치)"
+        warn "claude CLI 없음 → skip"
     else
         bash "$REPO/scripts/claude/install-plugins.sh" 2>&1 | sed 's/^/  /' || true
+    fi
+
+    section "🔌" "MCP SYNC — 경로 검증 + 등록"
+    if ! command -v claude >/dev/null 2>&1; then
+        warn "claude CLI 없음 → skip"
+    else
+        bash "$REPO/scripts/claude/install-mcp.sh" 2>&1 | sed 's/^/  /' || true
     fi
 
     section "✅" "PULL 완료 ($(date +%H:%M:%S))"

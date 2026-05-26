@@ -1,62 +1,124 @@
 #!/usr/bin/env bash
-# Claude Code MCP 서버 등록.
-# manifests/claude/mcp.json 읽음.
+# Claude Code MCP 서버를 manifest와 동기화.
+# stdio 서버의 경로 의존성을 사전 검증, 경로 없으면 경고+skip.
 set -euo pipefail
 
 REPO_ROOT="${REPO_ROOT:-$HOME/.local/share/chezmoi}"
 MCP_JSON="$REPO_ROOT/manifests/claude/mcp.json"
 
-log() { printf '\033[1;35m[claude/mcp]\033[0m %s\n' "$*"; }
+C_OK=$(tput setaf 2 2>/dev/null || echo "")
+C_ADD=$(tput setaf 2 2>/dev/null || echo "")
+C_WARN=$(tput setaf 3 2>/dev/null || echo "")
+C_RM=$(tput setaf 1 2>/dev/null || echo "")
+C_DIM=$(tput setaf 8 2>/dev/null || echo "")
+C_OFF=$(tput sgr0 2>/dev/null || echo "")
 
 if ! command -v claude >/dev/null 2>&1; then
-    log "❌ claude CLI 없음"; exit 1
+    printf '  %s⊘%s claude CLI 없음 → MCP sync skip\n' "$C_DIM" "$C_OFF"
+    exit 0
 fi
-if ! command -v jq >/dev/null 2>&1; then
-    log "❌ jq 필요"; exit 1
-fi
+command -v jq >/dev/null 2>&1 || { echo "  ✗ jq 필요"; exit 1; }
+[[ -f "$MCP_JSON" ]] || { printf '  %s⊘%s mcp.json 없음 → skip\n' "$C_DIM" "$C_OFF"; exit 0; }
+
+# placeholder → 이 PC env로 expand
+# {{HOME}}            → $HOME
+# {{PROJECTS_ROOT}}   → $PROJECTS_ROOT (또는 $HOME/Project 기본값)
+# {{OBSIDIAN_VAULT}}  → $OBSIDIAN_SYNC (또는 $HOME/obsidian_sync 기본값)
+[[ -f "$HOME/.config/agent-dotfiles/env" ]] && source "$HOME/.config/agent-dotfiles/env" || true
+: "${PROJECTS_ROOT:=$HOME/Project}"
+: "${OBSIDIAN_SYNC:=$HOME/obsidian_sync}"
+
+expand_path() {
+    local p="$1"
+    p="${p//\{\{HOME\}\}/$HOME}"
+    p="${p//\{\{PROJECTS_ROOT\}\}/$PROJECTS_ROOT}"
+    p="${p//\{\{OBSIDIAN_VAULT\}\}/$OBSIDIAN_SYNC}"
+    echo "$p"
+}
+
+# stdio MCP의 경로 존재 검증 — args 안에 디렉토리/파일 경로 의심되는 토큰 검사
+verify_paths() {
+    local args_json="$1"
+    local missing=""
+    # args 배열의 각 원소 중 / 로 시작하거나 ~/로 시작하는 것 (경로 의심)
+    while IFS= read -r token; do
+        [[ -z "$token" ]] && continue
+        # 절대경로 또는 홈 시작
+        if [[ "$token" == /* || "$token" == "$HOME"/* ]]; then
+            if [[ ! -e "$token" ]]; then
+                missing+="$token\n"
+            fi
+        fi
+    done < <(echo "$args_json" | jq -r '.[]?' 2>/dev/null | while read -r t; do echo "$(expand_path "$t")"; done)
+    echo -ne "$missing"
+}
 
 count=$(jq '.servers | length' "$MCP_JSON")
-log "Claude MCP 서버 $count 개 처리"
+[[ "$count" == "0" ]] && { printf '  %s✓%s MCP 서버 manifest 비어있음 — skip\n' "$C_OK" "$C_OFF"; exit 0; }
 
+# 현재 등록된 MCP 서버 목록
+HAVE_MCP=$(claude mcp list 2>/dev/null | awk '/^[a-zA-Z0-9_-]+/{print $1}' | sort -u || true)
+
+added=0; warned=0; skipped=0
 jq -c '.servers[]' "$MCP_JSON" | while read -r srv; do
     name=$(echo "$srv" | jq -r '.name')
-    type=$(echo "$srv" | jq -r '.type')
+    type=$(echo "$srv" | jq -r '.type // "stdio"')
     scope=$(echo "$srv" | jq -r '.scope // "user"')
-    skip=$(echo "$srv" | jq -r '.skip // false')
 
-    if [[ "$skip" == "true" ]]; then
-        manual=$(echo "$srv" | jq -r '.manualInstruction // "수동 등록 필요"')
-        log "  ⊘ $name — $manual"
+    # 이미 등록됐으면 skip (또는 verify만)
+    if grep -qxF "$name" <<< "$HAVE_MCP"; then
+        printf '  %s=%s %s (이미 등록됨)\n' "$C_DIM" "$C_OFF" "$name"
         continue
     fi
 
     case "$type" in
         stdio)
             command=$(echo "$srv" | jq -r '.command')
-            args=$(echo "$srv" | jq -r '.args | map(. | gsub("{{HOME}}"; env.HOME)) | join(" ")')
-            requires=$(echo "$srv" | jq -r '.requiresProject // ""')
-            if [[ -n "$requires" ]]; then
-                if [[ ! -d "$HOME/Project/sub_project/personal/$requires" ]]; then
-                    log "  ⊘ $name — 의존 프로젝트 '$requires' 없음. clone-personal-projects.sh 먼저 실행"
+            command=$(expand_path "$command")
+            args_json=$(echo "$srv" | jq '.args // []')
+            args=$(echo "$args_json" | jq -r --arg home "$HOME" --arg pr "$PROJECTS_ROOT" --arg ov "$OBSIDIAN_SYNC" \
+                'map(gsub("\\{\\{HOME\\}\\}"; $home) | gsub("\\{\\{PROJECTS_ROOT\\}\\}"; $pr) | gsub("\\{\\{OBSIDIAN_VAULT\\}\\}"; $ov)) | join(" ")')
+
+            # 1) command 자체 존재? (절대경로 또는 PATH)
+            if [[ "$command" == /* || "$command" == "$HOME"/* ]]; then
+                if [[ ! -x "$command" ]]; then
+                    printf '  %s⚠%s %s — command 경로 없음/실행불가: %s\n' "$C_WARN" "$C_OFF" "$name" "$command"
+                    printf '    %sskip (이 PC에 해당 도구 미설치)%s\n' "$C_DIM" "$C_OFF"
                     continue
                 fi
-            fi
-            log "  + $name (stdio): $command $args"
-            claude mcp add "$name" --scope "$scope" -- $command $args 2>&1 | sed 's/^/    /' || true
-            ;;
-        http)
-            url=$(echo "$srv" | jq -r '.url')
-            if [[ "$url" == TODO:* ]]; then
-                log "  ⊘ $name — URL 미설정 (manifests/claude/mcp.json 참고)"
+            elif ! command -v "$command" >/dev/null 2>&1; then
+                printf '  %s⚠%s %s — command "%s" PATH에서 못 찾음\n' "$C_WARN" "$C_OFF" "$name" "$command"
+                printf '    %sskip%s\n' "$C_DIM" "$C_OFF"
                 continue
             fi
-            log "  + $name (http): $url"
-            claude mcp add "$name" --scope "$scope" --transport http "$url" 2>&1 | sed 's/^/    /' || true
+
+            # 2) args 안의 절대경로 검증
+            missing=$(verify_paths "$args_json")
+            if [[ -n "$missing" ]]; then
+                printf '  %s⚠%s %s — 의존 경로가 이 PC에 없음:\n' "$C_WARN" "$C_OFF" "$name"
+                echo -e "$missing" | sed "s|^|    ${C_WARN}- ${C_OFF}|"
+                printf '    %sskip — 경로를 만들거나 manifest를 이 PC에 맞게 수정 필요%s\n' "$C_DIM" "$C_OFF"
+                continue
+            fi
+
+            printf '  %s+%s %s (stdio): %s %s\n' "$C_ADD" "$C_OFF" "$name" "$command" "$args"
+            claude mcp add "$name" --scope "$scope" -- $command $args >/dev/null 2>&1 || \
+                printf '    %s(등록 실패)%s\n' "$C_DIM" "$C_OFF"
+            ;;
+        http|sse)
+            url=$(echo "$srv" | jq -r '.url')
+            if [[ -z "$url" || "$url" == "null" || "$url" == TODO:* ]]; then
+                printf '  %s⊘%s %s — URL 미설정\n' "$C_DIM" "$C_OFF" "$name"
+                continue
+            fi
+            printf '  %s+%s %s (%s): %s\n' "$C_ADD" "$C_OFF" "$name" "$type" "$url"
+            claude mcp add "$name" --scope "$scope" --transport "$type" "$url" >/dev/null 2>&1 || \
+                printf '    %s(등록 실패)%s\n' "$C_DIM" "$C_OFF"
             ;;
         *)
-            log "  ? $name — 알 수 없는 type: $type"
+            printf '  %s?%s %s — 알 수 없는 type: %s\n' "$C_DIM" "$C_OFF" "$name" "$type"
             ;;
     esac
 done
 
-log "✓ Claude MCP 등록 완료"
+printf '  %s✓%s MCP sync 완료\n' "$C_OK" "$C_OFF"

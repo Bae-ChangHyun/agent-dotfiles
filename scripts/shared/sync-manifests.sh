@@ -45,11 +45,22 @@ if [[ -f "$SRC_PLG" ]]; then
 fi
 
 # ---- 3. MCP 서버 ----
+# 절대경로 → placeholder 자동 역치환:
+#   $PROJECTS_ROOT  → {{PROJECTS_ROOT}}     (있는 경우)
+#   $OBSIDIAN_SYNC  → {{OBSIDIAN_VAULT}}    (있는 경우)
+#   $HOME           → {{HOME}}              (항상)
+# 각 PC의 ~/.config/agent-dotfiles/env에 PROJECTS_ROOT, OBSIDIAN_SYNC 정의 시,
+# install-mcp.sh가 pull 시 자동으로 그 PC 경로로 expand.
 SRC_MCP="$HOME/.claude.json"
 OUT_MCP="$REPO/manifests/claude/mcp.json"
 if [[ -f "$SRC_MCP" ]]; then
-    jq --arg home "$HOME" '{
-        "$comment": "자동 생성됨 by sync-manifests.sh — ~/.claude.json mcpServers 기반",
+    # 머신별 env 로드 (PROJECTS_ROOT 등)
+    [[ -f "$HOME/.config/agent-dotfiles/env" ]] && source "$HOME/.config/agent-dotfiles/env" || true
+
+    jq --arg home "$HOME" \
+       --arg pr "${PROJECTS_ROOT:-}" \
+       --arg ov "${OBSIDIAN_SYNC:-}" '{
+        "$comment": "자동 생성. {{HOME}}/{{PROJECTS_ROOT}}/{{OBSIDIAN_VAULT}}는 install-mcp.sh가 각 PC env로 expand.",
         servers: [
             (.mcpServers // {}) | to_entries[] | {
                 name: .key,
@@ -58,7 +69,11 @@ if [[ -f "$SRC_MCP" ]]; then
                 command: (.value.command // null),
                 args: (
                     if .value.args then
-                        .value.args | map(gsub($home; "{{HOME}}"))
+                        .value.args | map(
+                            (if $pr != "" then gsub($pr; "{{PROJECTS_ROOT}}") else . end) |
+                            (if $ov != "" then gsub($ov; "{{OBSIDIAN_VAULT}}") else . end) |
+                            gsub($home; "{{HOME}}")
+                        )
                     else null end
                 ),
                 url: (.value.url // null)
