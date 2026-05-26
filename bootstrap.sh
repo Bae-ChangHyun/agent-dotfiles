@@ -88,6 +88,7 @@ if [[ -f "$HOME/.config/chezmoi/key.txt" ]]; then
 else
     echo "  ${C_SKIP}⚠ ~/.config/chezmoi/key.txt 없음. docs/SECRETS.md 참고하여 키를 가져와야 합니다.${C_OFF}"
     if ask "  지금 새로 생성할까요? (기존 시크릿 복호화 불가능해짐)"; then
+        run "mkdir" mkdir -p "$HOME/.config/chezmoi"
         run "keygen" age-keygen -o "$HOME/.config/chezmoi/key.txt"
         run "chmod" chmod 600 "$HOME/.config/chezmoi/key.txt"
     fi

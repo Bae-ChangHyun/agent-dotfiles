@@ -92,7 +92,10 @@ pull_step() {
     else
         local changed=$(git diff --name-only "$before_hash" "$after_hash" 2>/dev/null | wc -l | tr -d ' ')
         ok "$changed 파일 받음"
-        git diff --name-only "$before_hash" "$after_hash" 2>/dev/null | head -5 | sed 's/^/    /'
+        # SIGPIPE 회피 — pipe 대신 변수 통해 처리
+        local _diff_files
+        _diff_files=$(git diff --name-only "$before_hash" "$after_hash" 2>/dev/null || true)
+        printf '%s\n' "$_diff_files" | awk 'NR<=5 {print "    " $0}'
         [[ $changed -gt 5 ]] && dim "...외 $((changed - 5))개"
     fi
 

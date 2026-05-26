@@ -46,7 +46,7 @@ fi
 claude plugin marketplace update >/dev/null 2>&1 || true
 
 # ---- 플러그인 sync (user scope) ----
-WANT_PLG=$(grep -vE '^\s*(#|$)' "$PLUGINS" 2>/dev/null | awk '{print $1}' | sort -u | (grep -v '^$' || true) || true)
+WANT_PLG=$(grep -vE '^[[:space:]]*(#|$)' "$PLUGINS" 2>/dev/null | awk '{print $1}' | sort -u | (grep -v '^$' || true) || true)
 HAVE_PLG=$(jq -r '
     .plugins | to_entries[] |
     select(.value | map(.scope) | index("user")) |

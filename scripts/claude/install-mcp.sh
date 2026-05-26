@@ -46,16 +46,23 @@ verify_paths_arr() {
     local token
     for token in "$@"; do
         [[ -z "$token" ]] && continue
-        # 미해결 placeholder
+        # 미해결 placeholder (token 안 어디든 {{VAR}} 패턴 남아있으면)
         if [[ "$token" == *'{{'*'}}'* ]]; then
             missing+="$token  (미해결 placeholder — env에 변수 정의 필요)"$'\n'
             continue
         fi
-        # 절대경로 / 홈 시작인데 실제 파일 없음
+        # 토큰에서 절대경로 부분 추출 — "--dir=/path", "FOO=/path", "/path" 모두 catch
+        # = 뒤 또는 token 시작에 / 또는 ~ 시작
+        local path_in_token=""
         if [[ "$token" == /* || "$token" == "$HOME"/* ]]; then
-            if [[ ! -e "$token" ]]; then
-                missing+="$token"$'\n'
-            fi
+            path_in_token="$token"
+        elif [[ "$token" == *=/* ]]; then
+            path_in_token="${token#*=}"
+        elif [[ "$token" == *=\~/* ]]; then
+            path_in_token="$HOME/${token#*=\~/}"
+        fi
+        if [[ -n "$path_in_token" ]] && [[ ! -e "$path_in_token" ]]; then
+            missing+="$path_in_token"$'\n'
         fi
     done
     printf '%s' "$missing"

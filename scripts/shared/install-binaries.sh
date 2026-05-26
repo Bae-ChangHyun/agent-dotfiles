@@ -36,6 +36,22 @@ else
     log "chezmoi ✓ ($(chezmoi --version | head -1))"
 fi
 
+# jq (manifest 처리에 필수)
+if ! have jq; then
+    log "jq 설치"
+    if [[ "$OS" == "darwin" ]] && have brew; then
+        brew install jq
+    elif have apt-get; then
+        sudo apt-get install -y jq 2>/dev/null || log "  ⚠ jq 설치 실패 — sudo 권한 필요"
+    elif have pacman; then
+        sudo pacman -S --noconfirm jq 2>/dev/null || log "  ⚠ jq 설치 실패"
+    else
+        log "  ⚠ jq 자동 설치 불가 — 수동 설치 필요"
+    fi
+else
+    log "jq ✓"
+fi
+
 # age + age-keygen
 if ! have age || ! have age-keygen; then
     log "age 설치 ($OS/$ARCH)"

@@ -45,7 +45,7 @@ if [[ -f "$SRC_PLG" ]]; then
             if $entry then "\($name)\tuser" else empty end
         ' "$SRC_PLG" | awk -F'\t' '{ printf "%-45s  %s\n", $1, $2 }'
     } > "$OUT_PLG"
-    n=$(grep -cvE "^\s*(#|$)" "$OUT_PLG" || echo 0)
+    n=$(grep -cvE "^[[:space:]]*(#|$)" "$OUT_PLG" || echo 0)
     printf '  %s✓%s user-scope 플러그인: %d개\n' "$C_OK" "$C_OFF" "$n"
 fi
 
