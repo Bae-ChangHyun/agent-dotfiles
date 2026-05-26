@@ -2,6 +2,18 @@
 # dsync — Claude Code + Codex 양방향 자동 sync.
 set -euo pipefail
 
+# PATH 보강 (cron/SSH 자동화 환경에서도 brew/nvm 등 잡히도록)
+if [[ -d "$HOME/.nvm/versions/node" ]]; then
+    NVM_BIN=$(ls -d "$HOME"/.nvm/versions/node/*/bin 2>/dev/null | tail -1)
+    [[ -n "$NVM_BIN" ]] && export PATH="$NVM_BIN:$PATH"
+fi
+[[ -d /opt/homebrew/bin   ]] && export PATH="/opt/homebrew/bin:$PATH"
+[[ -d /usr/local/bin      ]] && export PATH="/usr/local/bin:$PATH"
+[[ -d "$HOME/.local/bin"  ]] && export PATH="$HOME/.local/bin:$PATH"
+
+# 머신별 환경변수 파일 자동 source (옵시디언 vault, PROJECTS_ROOT 등)
+[[ -f "$HOME/.config/agent-dotfiles/env" ]] && source "$HOME/.config/agent-dotfiles/env"
+
 REPO="$HOME/.local/share/chezmoi"
 MODE="${1:-push}"
 HOSTNAME_SHORT="$(hostname -s)"
