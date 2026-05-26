@@ -39,21 +39,25 @@ expand_path() {
     echo "$p"
 }
 
-# stdio MCP의 경로 존재 검증 — args 안에 디렉토리/파일 경로 의심되는 토큰 검사
+# stdio MCP의 경로 존재 검증 — args 안에 절대경로 토큰 + 미해결 placeholder 모두 catch
 verify_paths() {
     local args_json="$1"
     local missing=""
-    # args 배열의 각 원소 중 / 로 시작하거나 ~/로 시작하는 것 (경로 의심)
     while IFS= read -r token; do
         [[ -z "$token" ]] && continue
-        # 절대경로 또는 홈 시작
+        # 미해결 placeholder ({{VARNAME}}가 남아있음 = env에 정의 안 됨)
+        if [[ "$token" == *'{{'*'}}'* ]]; then
+            missing+="$token  (미해결 placeholder — env에 변수 정의 필요)"$'\n'
+            continue
+        fi
+        # 절대경로 / 홈 시작인데 실제 파일 없음
         if [[ "$token" == /* || "$token" == "$HOME"/* ]]; then
             if [[ ! -e "$token" ]]; then
-                missing+="$token\n"
+                missing+="$token"$'\n'
             fi
         fi
-    done < <(echo "$args_json" | jq -r '.[]?' 2>/dev/null | while read -r t; do echo "$(expand_path "$t")"; done)
-    echo -ne "$missing"
+    done < <(echo "$args_json" | jq -r '.[]?' 2>/dev/null | while read -r t; do expand_path "$t"; done)
+    printf '%s' "$missing"
 }
 
 count=$(jq '.servers | length' "$MCP_JSON")
@@ -62,7 +66,7 @@ count=$(jq '.servers | length' "$MCP_JSON")
 # 현재 등록된 MCP 서버 목록
 HAVE_MCP=$(claude mcp list 2>/dev/null | awk '/^[a-zA-Z0-9_-]+/{print $1}' | sort -u || true)
 
-added=0; warned=0; skipped=0
+# counter 변수 제거 (pipe subshell)
 jq -c '.servers[]' "$MCP_JSON" | while read -r srv; do
     name=$(echo "$srv" | jq -r '.name')
     type=$(echo "$srv" | jq -r '.type // "stdio"')

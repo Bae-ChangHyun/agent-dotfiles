@@ -38,15 +38,22 @@ jq -c '.projects[]' "$MANIFEST" | while read -r p; do
         fi
     fi
 
-    # setup 명령 실행
+    # setup 명령 — 사용자 명시 동의 후 실행 (manifest는 git에 commit되는 평문이므로,
+    # 악의적 PR/fork 시 임의 명령 실행 위험. 기본은 출력만 하고 사용자 확인 후 실행)
     setup_cmds=$(echo "$p" | jq -r '.setup[]?' 2>/dev/null || true)
     if [[ -n "$setup_cmds" ]]; then
-        cd "$path"
-        while IFS= read -r cmd; do
-            [[ -z "$cmd" ]] && continue
-            log "  ▶ $cmd"
-            eval "$cmd" 2>&1 | sed 's/^/    /' || true
-        done <<< "$setup_cmds"
+        log "  ▶ setup 명령 (manifest에 정의됨):"
+        echo "$setup_cmds" | sed 's/^/      /'
+        if [[ "${DSYNC_AUTO_SETUP:-0}" == "1" ]]; then
+            cd "$path"
+            while IFS= read -r cmd; do
+                [[ -z "$cmd" ]] && continue
+                log "    ▶ 실행: $cmd"
+                bash -c "$cmd" 2>&1 | sed 's/^/      /' || true
+            done <<< "$setup_cmds"
+        else
+            log "    (스킵 — 명령 검토 후 실행하려면: DSYNC_AUTO_SETUP=1 dsync ...)"
+        fi
     fi
 done
 

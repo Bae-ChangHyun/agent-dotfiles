@@ -160,5 +160,5 @@ echo
 echo "다음 할 일:"
 echo "  • ${C_STEP}claude${C_OFF} 실행해서 Claude Code 동작 확인"
 echo "  • ${C_STEP}codex${C_OFF} 실행해서 Codex 동작 확인"
-echo "  • pencil MCP는 docs/SECRETS.md 안내 따라 수동 등록"
+echo "  • 머신별 경로/시크릿 mismatch 경고 시 ~/.config/agent-dotfiles/env 에 변수 정의"
 echo "  • 새 시크릿 추가/회전은 docs/SECRETS.md 참고"

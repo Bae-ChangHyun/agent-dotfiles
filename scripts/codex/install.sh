@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log() { printf '\033[1;34m[codex]\033[0m %s\n' "$*"; }
 
-log "1/2 chezmoi apply (dot_codex 영역) — config.toml.tmpl 안의 refero 토큰 자동 복호화됨"
+log "1/2 chezmoi apply (dot_codex 영역) — config.toml.tmpl 안의 시크릿 자동 복호화"
 chezmoi apply --include=files --source-path="$REPO_ROOT/dot_codex" 2>&1 \
     || chezmoi apply ~/.codex
 

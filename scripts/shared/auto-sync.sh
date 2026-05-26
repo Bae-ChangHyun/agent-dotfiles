@@ -28,12 +28,21 @@ cd "$REPO"
 
 # 동시 실행 방어 (cron + 수동 실행 충돌 방지)
 # push/pull/both 같이 git 변경 발생하는 모드만 lock
+# flock (Linux util-linux) 우선, 없으면 mkdir 원자적 락 (macOS BSD 호환)
 case "$MODE" in
     push|pull|both|rm|remove)
-        LOCK_FILE="${TMPDIR:-/tmp}/dsync-$(id -u).lock"
-        exec 9>"$LOCK_FILE"
+        LOCK_DIR="${TMPDIR:-/tmp}/dsync-$(id -u).lockdir"
         if command -v flock >/dev/null 2>&1; then
-            flock -n 9 || { echo "⚠ 다른 dsync 실행 중 (lock: $LOCK_FILE) — skip"; exit 0; }
+            LOCK_FILE="${TMPDIR:-/tmp}/dsync-$(id -u).lock"
+            exec 9>"$LOCK_FILE"
+            flock -n 9 || { echo "⚠ 다른 dsync 실행 중 — skip"; exit 0; }
+        else
+            # macOS fallback: mkdir 원자적 lock
+            if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+                echo "⚠ 다른 dsync 실행 중 ($LOCK_DIR) — skip"
+                exit 0
+            fi
+            trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
         fi
         ;;
 esac
