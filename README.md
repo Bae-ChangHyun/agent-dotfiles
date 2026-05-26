@@ -115,10 +115,30 @@ dsync rm <path>  # 양쪽 PC에서 파일/스킬 sync 삭제
 
 ### `dsync pull`이 자동으로 하는 것
 
-1. `git pull`
+1. `git pull` (로케일 무관, hash 비교)
 2. `chezmoi apply` (텍스트 파일/스킬/메모리)
 3. **홈 cleanup** — dotfiles에 없는 본인 폴더 자동 삭제
 4. **플러그인 sync** — manifest에 맞춰 install/uninstall
+5. **MCP sync** — placeholder를 머신별 env로 expand + 경로 존재 검증 + 없으면 ⚠ 경고 + skip
+
+### 머신별 경로 변수 (`~/.config/agent-dotfiles/env`)
+
+스킬/MCP가 PC마다 다른 경로(옵시디언 vault, 프로젝트 root 등)를 가리킬 때 사용. **선택사항** — 없어도 dsync 동작.
+
+```bash
+# 본인이 한 번 작성 (각 PC에 따로)
+mkdir -p ~/.config/agent-dotfiles
+cat > ~/.config/agent-dotfiles/env <<'EOF'
+export OBSIDIAN_VAULT="$HOME/Project/vault"
+export PROJECTS_ROOT="$HOME/Project"
+# 본인이 정의한 변수면 무엇이든 OK — dsync가 자동 인식
+EOF
+```
+
+작동 원리:
+- **push**: 절대경로가 env 변수 값과 일치하면 manifest에 `{{VARNAME}}`로 자동 역치환
+- **pull**: manifest의 `{{VARNAME}}`를 그 PC의 env 값으로 expand 후 등록
+- 경로 없으면 → 경고 + 어떤 변수 정의하면 되는지 안내
 
 ### Cron으로 완전 자동화 (선택)
 
