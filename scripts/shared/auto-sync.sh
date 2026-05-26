@@ -253,9 +253,20 @@ push_step() {
     [[ $n_md -gt 0 ]] && dim "글로벌 룰(.md): $n_md 파일"
     [[ $n_settings -gt 0 ]] && dim "settings/config: $n_settings 파일"
 
-    git add -A
-    git commit -m "🔄 autosync from ${HOSTNAME_SHORT} ${TS}" >/dev/null
-    git push >/dev/null 2>&1 && ok "GitHub push 완료" || { err "push 실패"; return 1; }
+    # 명시적 단계별 실패 처리 (set -e가 함수 내부에서 || 조합 호출 시 비활성됨)
+    if ! git add -A; then
+        err "git add 실패"
+        return 1
+    fi
+    if ! git commit -m "🔄 autosync from ${HOSTNAME_SHORT} ${TS}" >/dev/null; then
+        err "git commit 실패"
+        return 1
+    fi
+    if ! git push >/dev/null 2>&1; then
+        err "git push 실패 — 다음 dsync 때 재시도됨"
+        return 1
+    fi
+    ok "GitHub push 완료"
 
     section "✅" "DSYNC 완료 ($(date +%H:%M:%S))"
 }

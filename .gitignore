@@ -25,9 +25,7 @@ Thumbs.db
 .claude/
 .codex/
 
-# Don't commit unencrypted secrets
-secrets/*.txt
-secrets/*.json
-secrets/*.toml
+# Don't commit unencrypted secrets — age 암호화 파일만 허용
+secrets/*
 !secrets/.gitkeep
 !secrets/*.age
