@@ -3,9 +3,11 @@
 set -euo pipefail
 
 # PATH 보강 (cron/SSH 자동화 환경에서도 brew/nvm 등 잡히도록)
+# nvm: 설치된 모든 node 버전 bin을 prepend (claude가 있는 버전 잡히도록)
 if [[ -d "$HOME/.nvm/versions/node" ]]; then
-    NVM_BIN=$(ls -d "$HOME"/.nvm/versions/node/*/bin 2>/dev/null | tail -1)
-    [[ -n "$NVM_BIN" ]] && export PATH="$NVM_BIN:$PATH"
+    for nvm_bin in "$HOME"/.nvm/versions/node/*/bin; do
+        [[ -d "$nvm_bin" ]] && export PATH="$nvm_bin:$PATH"
+    done
 fi
 [[ -d /opt/homebrew/bin   ]] && export PATH="/opt/homebrew/bin:$PATH"
 [[ -d /usr/local/bin      ]] && export PATH="/usr/local/bin:$PATH"
