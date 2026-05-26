@@ -75,11 +75,11 @@ pull_step() {
     section "📥" "PULL — GitHub → 홈"
 
     info "git pull origin"
-    local before_hash after_hash pull_rc
+    local before_hash after_hash
+    local pull_rc=0
     before_hash=$(git rev-parse HEAD 2>/dev/null || echo "")
-    # pipefail로 git의 exit code가 sed에 묻히는 것 방지 — 별도 변수로 저장
-    LC_ALL=C git pull --ff-only > /tmp/dsync-pull-$$.log 2>&1
-    pull_rc=$?
+    # set -e 우회: || pull_rc=$? 로 실패 시에도 다음 라인 진행
+    LC_ALL=C git pull --ff-only > /tmp/dsync-pull-$$.log 2>&1 || pull_rc=$?
     sed 's/^/    /' < /tmp/dsync-pull-$$.log
     rm -f /tmp/dsync-pull-$$.log
     if [[ $pull_rc -ne 0 ]]; then
