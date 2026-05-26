@@ -227,6 +227,52 @@ dsync
 
 ---
 
+
+---
+
+## ⚠️ 스킬 / MCP / 인프라 의존 주의
+
+이 sync 시스템은 **파일을 옮기는 것**만 책임집니다. 스킬이나 MCP 서버 안에 박힌 **절대경로/인프라 의존성**은 그대로 옮겨가므로, fork한 사람이 본인 PC에 맞게 **직접 수정**해야 합니다.
+
+### 흔한 사례
+
+| 패턴 | 어디서 자주 보임 | 본인이 해야 할 것 |
+|---|---|---|
+| `/Users/원래주인/obsidian_sync/...` | 옵시디언 의존 스킬 (SKILL.md) | 본인 vault 경로로 교체 또는 symlink |
+| `~/.ai-newsletter/runtime` | 외부 도구 의존 스킬 | 그 도구를 깔거나 스킬 비활성화 |
+| `{{HOME}}/Project/sub_project/personal/foo` | MCP stdio 서버 (mcp.json) | 본인 프로젝트 경로로 교체 |
+| 본인이 만든 private repo MCP | manifests/claude/mcp.json | 본인 repo URL로 교체 또는 제거 |
+
+### 권장 패턴
+
+1. **SKILL.md에 절대경로 명시적 placeholder 사용**
+   ```markdown
+   기본 경로: `<USER_OBSIDIAN_VAULT>/notes/`
+   ```
+   상단에 "이 placeholder는 사용자에게 물어봐서 본인 경로로 사용" 안내.
+
+2. **머신별 환경변수 파일 활용**
+   `~/.config/agent-dotfiles/env`에 본인 PC만의 경로 export. dsync가 실행 시 자동 source.
+   ```bash
+   # ~/.config/agent-dotfiles/env (각 PC에 한 번)
+   export OBSIDIAN_SYNC="$HOME/Project/vault"
+   export PROJECTS_ROOT="$HOME/Project"
+   ```
+
+3. **symlink로 PC별 차이 흡수**
+   ```bash
+   ln -s "$HOME/Project/vault" "$HOME/obsidian_sync"
+   ```
+   양쪽 PC가 같은 경로로 보이게.
+
+### Bash 환경변수 표기는 자동으로 풀리지 않음
+
+```bash
+${OBSIDIAN_SYNC:-$HOME/obsidian_sync}   # ← 이건 bash 문법
+```
+이걸 SKILL.md 안에 적어도 LLM이 자동 expansion 하지 않습니다. **LLM이 bash 명령으로 옮길 때만** bash가 풀어줍니다. 그러므로 신뢰성 떨어짐. placeholder + 사용자 prompt 패턴이 더 안전.
+
+
 ## FAQ
 
 **Q. Mac에 `claude` CLI가 PATH에 없으면?**
