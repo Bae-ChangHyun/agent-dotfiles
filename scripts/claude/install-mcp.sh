@@ -105,23 +105,20 @@ jq -c '.servers[]' "$MCP_JSON" | while read -r srv; do
             # 2) args 안의 절대경로 검증
             missing=$(verify_paths "$args_json")
             if [[ -n "$missing" ]]; then
-                # 원본 args에 {{VAR}} placeholder 있었나 확인 (있으면 env 미정의 가능성)
-                placeholders=$(echo "$args_json" | jq -r '.[]?' 2>/dev/null | grep -oE '\{\{[A-Za-z_][A-Za-z0-9_]*\}\}' | sort -u | tr '\n' ' ')
-
                 printf '  %s⚠%s %s — 의존 경로가 이 PC에 없음:\n' "$C_WARN" "$C_OFF" "$name"
-                echo -e "$missing" | sed "s|^|    ${C_WARN}- ${C_OFF}|"
+                printf '%s' "$missing" | sed "s|^|    ${C_WARN}- ${C_OFF}|"
 
-                if [[ -n "$placeholders" ]]; then
-                    printf '    %s→ 해결 방법 중 택1:%s\n' "$C_DIM" "$C_OFF"
-                    printf '      %s(a) ~/.config/agent-dotfiles/env 에 변수 정의:%s\n' "$C_DIM" "$C_OFF"
-                    for ph in $placeholders; do
+                # missing 안에 "미해결 placeholder" 표시가 있으면 → env 정의 안내
+                # 없으면 → 경로 자체 미생성이므로 폴더/manifest 수정 안내
+                if [[ "$missing" == *'미해결 placeholder'* ]]; then
+                    unresolved=$(printf '%s' "$missing" | grep -oE '\{\{[A-Za-z_][A-Za-z0-9_]*\}\}' | sort -u)
+                    printf '    %s→ ~/.config/agent-dotfiles/env 에 다음 변수 정의 필요:%s\n' "$C_DIM" "$C_OFF"
+                    for ph in $unresolved; do
                         varname="${ph//[\{\}]/}"
-                        printf '          %sexport %s="/your/path"%s\n' "$C_DIM" "$varname" "$C_OFF"
+                        printf '       %sexport %s="/your/path"%s\n' "$C_DIM" "$varname" "$C_OFF"
                     done
-                    printf '      %s(b) 해당 경로에 폴더/심볼릭링크 생성%s\n' "$C_DIM" "$C_OFF"
-                    printf '      %s(c) 이 PC에서 이 MCP 안 쓰면 무시%s\n' "$C_DIM" "$C_OFF"
                 else
-                    printf '    %s→ 해결: (a) 폴더 만들기 (b) manifest를 이 PC 경로로 수정%s\n' "$C_DIM" "$C_OFF"
+                    printf '    %s→ 해결: (a) 해당 폴더 생성/symlink (b) 이 MCP 미사용시 무시%s\n' "$C_DIM" "$C_OFF"
                 fi
                 continue
             fi

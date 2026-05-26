@@ -116,7 +116,7 @@ fi
 
 # ---- 5. Claude MCP ----
 if [[ $ONLY_CODEX -eq 0 ]]; then
-    step $N $TOTAL "Claude MCP 서버 등록 (social-publisher, excalidraw 등)"
+    step $N $TOTAL "Claude MCP 서버 등록 (manifests/claude/mcp.json 기반)"
     if ask "  manifests/claude/mcp.json 기반으로 등록?"; then
         run "claude-mcp" bash "$REPO_ROOT/scripts/claude/install-mcp.sh"
     else echo "  ${C_SKIP}건너뜀${C_OFF}"; fi
@@ -145,7 +145,7 @@ fi
 
 # ---- 8. 개인 프로젝트 clone ----
 if [[ $ONLY_CLAUDE -eq 0 && $ONLY_CODEX -eq 0 ]]; then
-    step $N $TOTAL "개인 프로젝트 clone (social-publisher 등)"
+    step $N $TOTAL "개인 프로젝트 clone (manifests/personal-projects.json 기반)"
     if ask "  manifests/personal-projects.json 기반으로 clone + setup?"; then
         run "clone" bash "$REPO_ROOT/scripts/shared/clone-personal-projects.sh"
     else echo "  ${C_SKIP}건너뜀${C_OFF}"; fi

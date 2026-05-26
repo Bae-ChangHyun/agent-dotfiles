@@ -28,7 +28,7 @@ to_add_mkt=$(comm -23 <(printf '%s\n' "$WANT_MKT" | (grep -v '^$' || true)) <(pr
 if [[ -n "$to_add_mkt" ]]; then
     echo "$to_add_mkt" | while read name; do
         [[ -z "$name" ]] && continue
-        src=$(jq -r ".marketplaces[] | select(.name==\"$name\") | (.repo // .url)" "$MARKETPLACES")
+        src=$(jq -r --arg n "$name" '.marketplaces[] | select(.name==$n) | (.repo // .url)' "$MARKETPLACES")
         printf '  %s+%s 마켓 추가: %s (%s)\n' "$C_ADD" "$C_OFF" "$name" "$src"
         claude plugin marketplace add "$src" >/dev/null 2>&1 || true
     done

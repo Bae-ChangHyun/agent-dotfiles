@@ -36,6 +36,7 @@ case "$MODE" in
             LOCK_FILE="${TMPDIR:-/tmp}/dsync-$(id -u).lock"
             exec 9>"$LOCK_FILE"
             flock -n 9 || { echo "⚠ 다른 dsync 실행 중 — skip"; exit 0; }
+            # process exit 시 fd 9 자동 close → lock 해제. 파일은 남지만 0 bytes, 무해.
         else
             # macOS fallback: mkdir 원자적 lock
             if ! mkdir "$LOCK_DIR" 2>/dev/null; then
@@ -227,7 +228,7 @@ push_step() {
     local changed_files=$(git diff HEAD --name-only 2>/dev/null; git ls-files -o --exclude-standard 2>/dev/null)
     local n_skills=$(echo "$changed_files" | grep -cE "skills/" || true)
     local n_manifests=$(echo "$changed_files" | grep -cE "manifests/" || true)
-    local n_md=$(echo "$changed_files" | grep -cE "(CLAUDE|AGENTS|RTK|oracle).*\.md" || true)
+    local n_md=$(echo "$changed_files" | grep -cE "\.md$" || true)
     local n_settings=$(echo "$changed_files" | grep -cE "settings\.json|config\.toml" || true)
     [[ $n_skills -gt 0 ]] && dim "스킬: $n_skills 파일"
     [[ $n_manifests -gt 0 ]] && dim "manifest: $n_manifests 파일"

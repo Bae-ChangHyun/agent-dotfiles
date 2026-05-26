@@ -60,16 +60,16 @@ SRC_MCP="$HOME/.claude/.claude.json"
 OUT_MCP="$REPO/manifests/claude/mcp.json"
 
 if [[ -f "$SRC_MCP" ]]; then
-    # env에 정의된 export 변수 이름 추출 (= 사용자 의도한 placeholder 이름)
+    # env에 정의된 export 변수 이름 추출. 구분자는 NUL이 아닌 안전한 \x01 (경로/값에 안 나옴)
     SUBSTITUTIONS=""
+    SEP=$'\x01'
     if [[ -f "$HOME/.config/agent-dotfiles/env" ]]; then
         while IFS= read -r line; do
-            # export VAR="value" 형식 파싱
             [[ "$line" =~ ^export[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)= ]] || continue
             varname="${BASH_REMATCH[1]}"
             value="${!varname:-}"
             [[ -z "$value" || "$value" == "$HOME" ]] && continue
-            SUBSTITUTIONS+="$value|{{$varname}}"$'\n'
+            SUBSTITUTIONS+="${value}${SEP}{{${varname}}}"$'\n'
         done < "$HOME/.config/agent-dotfiles/env"
     fi
 
@@ -89,24 +89,24 @@ if [[ -f "$SRC_MCP" ]]; then
         ]
     }' "$SRC_MCP" > "$tmp_json"
 
-    # sed 메타문자 (. * [ ] ^ $ \ /) 이스케이프 헬퍼
+    # sed 메타문자 이스케이프 — 구분자 # 사용하므로 #도 이스케이프 (대신 |는 안 함)
     sed_escape() {
-        printf '%s' "$1" | sed -e 's/[]\/$*.^[]/\\&/g'
+        printf '%s' "$1" | sed -e 's/[]\/$*.^[#]/\\&/g'
     }
 
     # 2차: env 변수 값을 {{VARNAME}}로 역치환 — 긴 경로 먼저
     if [[ -n "$SUBSTITUTIONS" ]]; then
-        while IFS="|" read -r value placeholder; do
+        while IFS="$SEP" read -r value placeholder; do
             [[ -z "$value" ]] && continue
             esc_value=$(sed_escape "$value")
-            sed -i.bak "s|$esc_value|$placeholder|g" "$tmp_json"
+            sed -i.bak "s#${esc_value}#${placeholder}#g" "$tmp_json"
             rm -f "$tmp_json.bak"
-        done < <(echo "$SUBSTITUTIONS" | awk -F'|' '{print length($1)" "$0}' | sort -rn | cut -d' ' -f2-)
+        done < <(printf '%s' "$SUBSTITUTIONS" | awk -F"$SEP" 'NF>=2{print length($1)"\t"$0}' | sort -rn | cut -f2-)
     fi
 
     # 3차: 마지막에 $HOME → {{HOME}}
     esc_home=$(sed_escape "$HOME")
-    sed -i.bak "s|$esc_home|{{HOME}}|g" "$tmp_json"
+    sed -i.bak "s#${esc_home}#{{HOME}}#g" "$tmp_json"
     rm -f "$tmp_json.bak"
 
     mv "$tmp_json" "$OUT_MCP"
