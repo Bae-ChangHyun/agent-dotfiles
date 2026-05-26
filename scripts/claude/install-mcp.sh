@@ -20,20 +20,22 @@ fi
 command -v jq >/dev/null 2>&1 || { echo "  ✗ jq 필요"; exit 1; }
 [[ -f "$MCP_JSON" ]] || { printf '  %s⊘%s mcp.json 없음 → skip\n' "$C_DIM" "$C_OFF"; exit 0; }
 
-# placeholder → 이 PC env로 expand
-# {{HOME}}            → $HOME
-# {{PROJECTS_ROOT}}   → $PROJECTS_ROOT (또는 $HOME/Project 기본값)
-# {{OBSIDIAN_VAULT}}  → $OBSIDIAN_SYNC (또는 $HOME/obsidian_sync 기본값)
-# env 파일 자동 source (auto-sync.sh가 이미 만들어놨거나, 단독 호출 시 fallback)
+# 머신별 env source (선택). {{VARNAME}} placeholder는 env의 그 변수 값으로 expand.
 [[ -f "$HOME/.config/agent-dotfiles/env" ]] && source "$HOME/.config/agent-dotfiles/env" || true
-: "${PROJECTS_ROOT:=$HOME/Project}"
-: "${OBSIDIAN_SYNC:=$HOME/obsidian_sync}"
 
 expand_path() {
     local p="$1"
     p="${p//\{\{HOME\}\}/$HOME}"
-    p="${p//\{\{PROJECTS_ROOT\}\}/$PROJECTS_ROOT}"
-    p="${p//\{\{OBSIDIAN_VAULT\}\}/$OBSIDIAN_SYNC}"
+    # env에 정의된 변수 그대로 expand (사용자가 어떤 변수명 쓰든 OK)
+    if [[ -f "$HOME/.config/agent-dotfiles/env" ]]; then
+        while IFS= read -r line; do
+            [[ "$line" =~ ^export[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)= ]] || continue
+            local varname="${BASH_REMATCH[1]}"
+            local value="${!varname:-}"
+            [[ -z "$value" ]] && continue
+            p="${p//\{\{$varname\}\}/$value}"
+        done < "$HOME/.config/agent-dotfiles/env"
+    fi
     echo "$p"
 }
 

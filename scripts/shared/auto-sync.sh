@@ -13,19 +13,11 @@ fi
 [[ -d /usr/local/bin      ]] && export PATH="/usr/local/bin:$PATH"
 [[ -d "$HOME/.local/bin"  ]] && export PATH="$HOME/.local/bin:$PATH"
 
-# 머신별 환경변수 파일 자동 생성 (없으면 기본값으로) + source
+# 머신별 환경변수 파일 (선택). 있으면 source, 없어도 진행.
+# 사용자가 자기 스킬/MCP의 placeholder에 맞게 직접 작성.
+# 예: echo 'export FOO=/my/path' > ~/.config/agent-dotfiles/env
 ENV_FILE="$HOME/.config/agent-dotfiles/env"
-if [[ ! -f "$ENV_FILE" ]]; then
-    mkdir -p "$(dirname "$ENV_FILE")"
-    cat > "$ENV_FILE" <<EOF
-# 머신별 경로 변수. dsync가 매번 source.
-# 본인 환경 다르면 이 파일 수정 (예: 옵시디언 vault, 프로젝트 root)
-export OBSIDIAN_SYNC="\$HOME/obsidian_sync"
-export PROJECTS_ROOT="\$HOME/Project"
-EOF
-    echo "📝 ${ENV_FILE} 자동 생성 (기본값). 본인 PC와 다르면 수정해주세요."
-fi
-source "$ENV_FILE"
+[[ -f "$ENV_FILE" ]] && source "$ENV_FILE"
 
 REPO="$HOME/.local/share/chezmoi"
 MODE="${1:-push}"
