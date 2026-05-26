@@ -17,7 +17,8 @@ fi
 # 사용자가 자기 스킬/MCP의 placeholder에 맞게 직접 작성.
 # 예: echo 'export FOO=/my/path' > ~/.config/agent-dotfiles/env
 ENV_FILE="$HOME/.config/agent-dotfiles/env"
-[[ -f "$ENV_FILE" ]] && source "$ENV_FILE"
+# env 파일 내 문법 오류로 dsync 전체가 죽지 않게 || true
+[[ -f "$ENV_FILE" ]] && source "$ENV_FILE" || true
 
 REPO="$HOME/.local/share/chezmoi"
 MODE="${1:-push}"
@@ -298,8 +299,13 @@ case "$MODE" in
             warn "변경 없음"
         else
             git commit -m "🗑️  remove $(basename "$target") from ${HOSTNAME_SHORT}" >/dev/null
-            git push >/dev/null 2>&1
-            ok "양쪽 PC에서 삭제 완료 (다른 PC: dsync pull)"
+            if git push >/dev/null 2>&1; then
+                ok "양쪽 PC에서 삭제 완료 (다른 PC: dsync pull)"
+            else
+                err "git push 실패 — 로컬 삭제는 됐지만 GitHub 반영 X. 수동 push 필요"
+                err "  cd $REPO && git push"
+                exit 1
+            fi
         fi
         ;;
     *)
