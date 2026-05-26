@@ -24,6 +24,7 @@ command -v jq >/dev/null 2>&1 || { echo "  ✗ jq 필요"; exit 1; }
 # {{HOME}}            → $HOME
 # {{PROJECTS_ROOT}}   → $PROJECTS_ROOT (또는 $HOME/Project 기본값)
 # {{OBSIDIAN_VAULT}}  → $OBSIDIAN_SYNC (또는 $HOME/obsidian_sync 기본값)
+# env 파일 자동 source (auto-sync.sh가 이미 만들어놨거나, 단독 호출 시 fallback)
 [[ -f "$HOME/.config/agent-dotfiles/env" ]] && source "$HOME/.config/agent-dotfiles/env" || true
 : "${PROJECTS_ROOT:=$HOME/Project}"
 : "${OBSIDIAN_SYNC:=$HOME/obsidian_sync}"
