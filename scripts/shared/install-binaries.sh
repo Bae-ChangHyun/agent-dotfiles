@@ -61,30 +61,6 @@ else
     log "uv ✓ ($(uv --version))"
 fi
 
-# rtk (Rust Token Killer — rtk-ai/rtk 공식)
-# brew 또는 최신 release 태그의 install.sh (master HEAD curl pipe sh 지양 — 공급망 공격 위험)
-if ! have rtk; then
-    log "rtk 설치"
-    if [[ "$OS" == "darwin" ]] && have brew; then
-        brew install rtk
-    else
-        # 최신 release 태그를 GitHub API로 조회 후 그 태그의 install.sh 실행 (HEAD 직접 X)
-        if have gh; then
-            RTK_TAG=$(gh release view -R rtk-ai/rtk --json tagName -q .tagName 2>/dev/null || echo "")
-        elif have curl; then
-            RTK_TAG=$(curl -fsSL https://api.github.com/repos/rtk-ai/rtk/releases/latest 2>/dev/null | grep -oE '"tag_name":\s*"[^"]+"' | head -1 | sed 's/.*"\(.*\)"/\1/')
-        fi
-        if [[ -n "${RTK_TAG:-}" ]]; then
-            log "  → rtk-ai/rtk@$RTK_TAG install.sh 실행"
-            curl -fsSL "https://raw.githubusercontent.com/rtk-ai/rtk/${RTK_TAG}/install.sh" | sh
-        else
-            log "  ⚠ 최신 release 태그 조회 실패 — rtk 수동 설치 안내: https://github.com/rtk-ai/rtk/releases"
-        fi
-    fi
-else
-    log "rtk ✓ ($(rtk --version))"
-fi
-
 # gh (GitHub CLI) — apt 또는 brew 필요
 if ! have gh; then
     log "gh 미설치 — 'sudo apt install gh' 또는 https://cli.github.com 참고"

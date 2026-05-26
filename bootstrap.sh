@@ -74,7 +74,7 @@ N=1
 
 # ---- 1. 공통 바이너리 ----
 if [[ $ONLY_CLAUDE -eq 0 && $ONLY_CODEX -eq 0 ]]; then
-    step $N $TOTAL "공통 바이너리 (chezmoi, age, uv, rtk 등)"
+    step $N $TOTAL "공통 바이너리 점검 (chezmoi, age, uv, gh 등)"
     if ask "  설치/점검할까요?"; then
         run "binaries" bash "$REPO_ROOT/scripts/shared/install-binaries.sh"
     else echo "  ${C_SKIP}건너뜀${C_OFF}"; fi
