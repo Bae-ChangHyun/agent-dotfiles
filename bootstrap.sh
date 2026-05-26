@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BCH dotfiles 인터랙티브 부트스트랩
+# agent-dotfiles 인터랙티브 부트스트랩
 #
 # Usage:
 #   ./bootstrap.sh              # 인터랙티브 (각 단계마다 y/n)
@@ -60,7 +60,7 @@ step() {
 
 # ====================================================================
 echo "${C_HEAD}╔════════════════════════════════════════════════╗${C_OFF}"
-echo "${C_HEAD}║  BCH dotfiles 온보딩                            ║${C_OFF}"
+echo "${C_HEAD}║  agent-dotfiles 온보딩                          ║${C_OFF}"
 echo "${C_HEAD}╚════════════════════════════════════════════════╝${C_OFF}"
 echo
 echo "  repo: $REPO_ROOT"

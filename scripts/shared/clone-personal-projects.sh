@@ -10,13 +10,15 @@ log() { printf '\033[1;32m[clone]\033[0m %s\n' "$*"; }
 
 command -v jq >/dev/null 2>&1 || { log "❌ jq 필요"; exit 1; }
 
-# 환경변수 expand (PROJECTS_ROOT 없으면 ~/Project/sub_project/personal)
-RENDERED=$(envsubst < "$MANIFEST" 2>/dev/null || cat "$MANIFEST" | sed "s|\${PROJECTS_ROOT:-\$HOME[^}]*}|${PROJECTS_ROOT:-$HOME/Project/sub_project/personal}|g")
+# 머신별 env source (PROJECTS_ROOT 등)
+[[ -f "$HOME/.config/agent-dotfiles/env" ]] && source "$HOME/.config/agent-dotfiles/env" || true
 
-jq -c '.projects[]' <<< "$RENDERED" | while read -r p; do
+jq -c '.projects[]' "$MANIFEST" | while read -r p; do
     name=$(echo "$p" | jq -r '.name')
     repo=$(echo "$p" | jq -r '.repo')
-    path=$(echo "$p" | jq -r '.path')
+    raw_path=$(echo "$p" | jq -r '.path')
+    # bash ${VAR:-default}, $HOME 등 expand. 안전하게 eval.
+    path=$(eval echo "$raw_path")
 
     if [[ "$repo" == TODO:* ]]; then
         log "⊘ $name — repo URL 미설정 (manifests/personal-projects.json 수정 필요)"

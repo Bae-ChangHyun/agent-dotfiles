@@ -35,13 +35,15 @@ OUT_PLG="$REPO/manifests/claude/plugins.txt"
 if [[ -f "$SRC_PLG" ]]; then
     {
         echo "# 자동 생성됨 by sync-manifests.sh — user scope 플러그인만"
+        echo "# 형식: <plugin>@<marketplace>  <scope>"
         echo ""
+        # awk로 직접 정렬 (column -t 의존 X — macOS BSD vs GNU 호환성)
         jq -r '
             .plugins | to_entries[] |
             .key as $name |
             (.value | map(select(.scope == "user")) | first) as $entry |
             if $entry then "\($name)\tuser" else empty end
-        ' "$SRC_PLG" | column -t
+        ' "$SRC_PLG" | awk -F'\t' '{ printf "%-45s  %s\n", $1, $2 }'
     } > "$OUT_PLG"
     n=$(grep -cvE "^\s*(#|$)" "$OUT_PLG" || echo 0)
     printf '  %s✓%s user-scope 플러그인: %d개\n' "$C_OK" "$C_OFF" "$n"
@@ -87,18 +89,24 @@ if [[ -f "$SRC_MCP" ]]; then
         ]
     }' "$SRC_MCP" > "$tmp_json"
 
-    # 2차: env 변수 값을 {{VARNAME}}로 역치환 — 긴 경로(=구체적) 먼저 매치돼야 함
+    # sed 메타문자 (. * [ ] ^ $ \ /) 이스케이프 헬퍼
+    sed_escape() {
+        printf '%s' "$1" | sed -e 's/[]\/$*.^[]/\\&/g'
+    }
+
+    # 2차: env 변수 값을 {{VARNAME}}로 역치환 — 긴 경로 먼저
     if [[ -n "$SUBSTITUTIONS" ]]; then
-        # value 길이 내림차순 정렬 (긴 path 먼저 치환 → /home/bch/Project/sub 가 /home/bch 보다 먼저)
         while IFS="|" read -r value placeholder; do
             [[ -z "$value" ]] && continue
-            sed -i.bak "s|$value|$placeholder|g" "$tmp_json"
+            esc_value=$(sed_escape "$value")
+            sed -i.bak "s|$esc_value|$placeholder|g" "$tmp_json"
             rm -f "$tmp_json.bak"
         done < <(echo "$SUBSTITUTIONS" | awk -F'|' '{print length($1)" "$0}' | sort -rn | cut -d' ' -f2-)
     fi
 
-    # 3차: 마지막에 $HOME → {{HOME}} (env 변수보다 짧으므로 안 겹치게 나중에)
-    sed -i.bak "s|$HOME|{{HOME}}|g" "$tmp_json"
+    # 3차: 마지막에 $HOME → {{HOME}}
+    esc_home=$(sed_escape "$HOME")
+    sed -i.bak "s|$esc_home|{{HOME}}|g" "$tmp_json"
     rm -f "$tmp_json.bak"
 
     mv "$tmp_json" "$OUT_MCP"

@@ -26,6 +26,18 @@ TS=$(date +%F-%H%M)
 
 cd "$REPO"
 
+# 동시 실행 방어 (cron + 수동 실행 충돌 방지)
+# push/pull/both 같이 git 변경 발생하는 모드만 lock
+case "$MODE" in
+    push|pull|both|rm|remove)
+        LOCK_FILE="${TMPDIR:-/tmp}/dsync-$(id -u).lock"
+        exec 9>"$LOCK_FILE"
+        if command -v flock >/dev/null 2>&1; then
+            flock -n 9 || { echo "⚠ 다른 dsync 실행 중 (lock: $LOCK_FILE) — skip"; exit 0; }
+        fi
+        ;;
+esac
+
 # 색상
 B=$(tput bold 2>/dev/null || echo "")
 C_HEAD=$(tput setaf 6 2>/dev/null || echo "")
@@ -52,14 +64,19 @@ pull_step() {
     section "📥" "PULL — GitHub → 홈"
 
     info "git pull origin"
-    local pull_out
-    pull_out=$(git pull --ff-only 2>&1) || { err "ff-only pull 실패 — 수동 merge 필요"; echo "$pull_out" | sed 's/^/    /'; return 1; }
-    if grep -q "Already up to date" <<< "$pull_out"; then
+    local before_hash after_hash
+    before_hash=$(git rev-parse HEAD 2>/dev/null || echo "")
+    if ! LC_ALL=C git pull --ff-only 2>&1 | sed 's/^/    /'; then
+        err "ff-only pull 실패 — 수동 merge 필요"
+        return 1
+    fi
+    after_hash=$(git rev-parse HEAD 2>/dev/null || echo "")
+    if [[ "$before_hash" == "$after_hash" ]]; then
         ok "이미 최신 (변경 없음)"
     else
-        local changed=$(grep -c "^ " <<< "$pull_out" || echo 0)
+        local changed=$(git diff --name-only "$before_hash" "$after_hash" 2>/dev/null | wc -l | tr -d ' ')
         ok "$changed 파일 받음"
-        echo "$pull_out" | grep "^ " | head -5 | sed 's/^/    /'
+        git diff --name-only "$before_hash" "$after_hash" 2>/dev/null | head -5 | sed 's/^/    /'
         [[ $changed -gt 5 ]] && dim "...외 $((changed - 5))개"
     fi
 
@@ -74,7 +91,7 @@ pull_step() {
 
     section "🗑️ " "CLEANUP — 다른 PC에서 삭제된 스킬/팀 자동 정리"
     local removed=0
-    for base in dot_claude/skills dot_codex/skills dot_claude/teams; do
+    for base in dot_claude/skills dot_codex/skills; do
         local home_base="$HOME/.${base#dot_}"
         [[ -d "$home_base" ]] || continue
         for home_item in "$home_base"/*/; do
@@ -111,11 +128,20 @@ pull_step() {
 push_step() {
     section "🔄" "DSYNC PUSH (호스트: $HOSTNAME_SHORT)"
 
-    # 0. git pull
+    # 0. git pull (로케일 무관, hash 비교로 판정)
     info "git pull (다른 PC 변경 먼저 받기)"
-    local pull_out
-    pull_out=$(git pull --ff-only 2>&1) || { err "ff-only pull 실패"; echo "$pull_out" | sed 's/^/    /'; return 1; }
-    grep -q "Already up to date" <<< "$pull_out" && ok "이미 최신" || ok "$(echo "$pull_out" | grep -c "^ " || echo 0) 파일 받음"
+    local before_hash after_hash
+    before_hash=$(git rev-parse HEAD 2>/dev/null || echo "")
+    if ! LC_ALL=C git pull --ff-only >/dev/null 2>&1; then
+        err "ff-only pull 실패"
+        return 1
+    fi
+    after_hash=$(git rev-parse HEAD 2>/dev/null || echo "")
+    if [[ "$before_hash" == "$after_hash" ]]; then
+        ok "이미 최신"
+    else
+        ok "$(git diff --name-only "$before_hash" "$after_hash" 2>/dev/null | wc -l | tr -d ' ') 파일 받음"
+    fi
 
     # 1. manifest sync
     section "📋" "MANIFEST SYNC — 플러그인/마켓/MCP 자동 탐지"
@@ -124,7 +150,7 @@ push_step() {
     # 2. 삭제된 스킬/팀 forget
     section "🗑️ " "FORGET — 홈에서 삭제된 스킬/팀"
     local forgot=0
-    for base in dot_claude/skills dot_codex/skills dot_claude/teams; do
+    for base in dot_claude/skills dot_codex/skills; do
         [[ -d "$REPO/$base" ]] || continue
         for src_item in "$REPO/$base"/*/; do
             [[ -d "$src_item" ]] || continue
@@ -143,7 +169,7 @@ push_step() {
     # 3. 새 스킬/팀 add
     section "➕" "ADD — 새 스킬/팀 자동 탐지"
     local added=0
-    for base in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.claude/teams"; do
+    for base in "$HOME/.claude/skills" "$HOME/.codex/skills"; do
         [[ -d "$base" ]] || continue
         for item in "$base"/*/; do
             [[ -d "$item" ]] || continue
@@ -206,10 +232,11 @@ push_step() {
     section "✅" "DSYNC 완료 ($(date +%H:%M:%S))"
 }
 
+RC=0
 case "$MODE" in
-    pull)   pull_step ;;
-    push)   push_step ;;
-    both)   pull_step && push_step ;;
+    pull)   pull_step || RC=$? ;;
+    push)   push_step || RC=$? ;;
+    both)   pull_step && push_step || RC=$? ;;
     diff)   chezmoi diff ;;
     cd)     cd "$REPO" && exec "${SHELL:-bash}" ;;
     status)
@@ -253,3 +280,6 @@ EOF
         exit 1
         ;;
 esac
+
+# pull/push의 실패 코드 최종 전파 (cron 등에서 실패 감지 가능)
+exit "$RC"

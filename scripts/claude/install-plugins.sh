@@ -19,11 +19,12 @@ fi
 command -v jq >/dev/null 2>&1 || { echo "  ✗ jq 필요"; exit 1; }
 
 # ---- 마켓플레이스 sync ----
-WANT_MKT=$(jq -r '.marketplaces[].name' "$MARKETPLACES" | sort -u)
-HAVE_MKT=$(claude plugin marketplace list 2>/dev/null | awk -F'❯ ' '/❯ /{print $2}' | sort -u)
+# grep -v으로 빈 줄 제거 — comm은 비어있는 입력에 echo "" 한 줄을 받으면 오작동
+WANT_MKT=$(jq -r '.marketplaces[].name // empty' "$MARKETPLACES" | sort -u | grep -v '^$' || true)
+HAVE_MKT=$(claude plugin marketplace list 2>/dev/null | awk -F'❯ ' '/❯ /{print $2}' | sort -u | grep -v '^$' || true)
 
 mkt_added=0; mkt_removed=0
-to_add_mkt=$(comm -23 <(echo "$WANT_MKT") <(echo "$HAVE_MKT"))
+to_add_mkt=$(comm -23 <(printf '%s\n' "$WANT_MKT" | grep -v '^$') <(printf '%s\n' "$HAVE_MKT" | grep -v '^$'))
 if [[ -n "$to_add_mkt" ]]; then
     echo "$to_add_mkt" | while read name; do
         [[ -z "$name" ]] && continue
@@ -32,7 +33,7 @@ if [[ -n "$to_add_mkt" ]]; then
         claude plugin marketplace add "$src" >/dev/null 2>&1 || true
     done
 fi
-to_rm_mkt=$(comm -13 <(echo "$WANT_MKT") <(echo "$HAVE_MKT"))
+to_rm_mkt=$(comm -13 <(printf '%s\n' "$WANT_MKT" | grep -v '^$') <(printf '%s\n' "$HAVE_MKT" | grep -v '^$'))
 if [[ -n "$to_rm_mkt" ]]; then
     echo "$to_rm_mkt" | while read name; do
         [[ -z "$name" ]] && continue
@@ -45,15 +46,15 @@ fi
 claude plugin marketplace update >/dev/null 2>&1 || true
 
 # ---- 플러그인 sync (user scope) ----
-WANT_PLG=$(grep -vE '^\s*(#|$)' "$PLUGINS" | awk '{print $1}' | sort -u)
+WANT_PLG=$(grep -vE '^\s*(#|$)' "$PLUGINS" 2>/dev/null | awk '{print $1}' | sort -u | grep -v '^$' || true)
 HAVE_PLG=$(jq -r '
     .plugins | to_entries[] |
     select(.value | map(.scope) | index("user")) |
     .key
-' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null | sort -u)
+' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null | sort -u | grep -v '^$' || true)
 
 plg_added=0; plg_removed=0
-to_inst=$(comm -23 <(echo "$WANT_PLG") <(echo "$HAVE_PLG"))
+to_inst=$(comm -23 <(printf '%s\n' "$WANT_PLG" | grep -v '^$') <(printf '%s\n' "$HAVE_PLG" | grep -v '^$'))
 if [[ -n "$to_inst" ]]; then
     echo "$to_inst" | while read plg; do
         [[ -z "$plg" ]] && continue
@@ -61,7 +62,7 @@ if [[ -n "$to_inst" ]]; then
         claude plugin install "$plg" --scope user >/dev/null 2>&1 || printf '    %s(설치 실패)%s\n' "$C_DIM" "$C_OFF"
     done
 fi
-to_uninst=$(comm -13 <(echo "$WANT_PLG") <(echo "$HAVE_PLG"))
+to_uninst=$(comm -13 <(printf '%s\n' "$WANT_PLG" | grep -v '^$') <(printf '%s\n' "$HAVE_PLG" | grep -v '^$'))
 if [[ -n "$to_uninst" ]]; then
     echo "$to_uninst" | while read plg; do
         [[ -z "$plg" ]] && continue

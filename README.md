@@ -44,9 +44,11 @@
 ### 2단계: 첫 PC에서 age 키 생성
 
 ```bash
-# age 설치 (없으면)
-brew install age            # macOS
-# 또는 https://github.com/FiloSottile/age 참고
+# age 설치
+brew install age            # macOS (Homebrew)
+sudo apt install age        # Ubuntu/Debian
+sudo pacman -S age          # Arch
+# 또는 binary 직접 다운로드: https://github.com/FiloSottile/age/releases
 
 # 마스터 키 생성
 mkdir -p ~/.config/chezmoi

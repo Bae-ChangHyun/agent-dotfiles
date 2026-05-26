@@ -52,6 +52,9 @@ dot_claude/skills/symlink_*
 dot_codex/skills/dot_system/**
 dot_codex/skills/codex-primary-runtime/**
 
+# Claude Code Teams — 프로젝트별 일회성이라 sync 부적합
+dot_claude/teams/**
+
 # Codex 휘발성
 dot_codex/.tmp/**
 dot_codex/backups/**

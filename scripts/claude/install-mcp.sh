@@ -79,13 +79,11 @@ jq -c '.servers[]' "$MCP_JSON" | while read -r srv; do
             command=$(echo "$srv" | jq -r '.command')
             command=$(expand_path "$command")
             args_json=$(echo "$srv" | jq '.args // []')
-            # 각 arg를 bash expand_path로 placeholder 치환 (env에 정의된 모든 변수)
-            args=""
+            # 각 arg를 expand_path로 치환 — 배열로 보관 (공백 포함 경로 안전)
+            args_arr=()
             while IFS= read -r token; do
-                expanded=$(expand_path "$token")
-                args+="$expanded "
+                args_arr+=("$(expand_path "$token")")
             done < <(echo "$args_json" | jq -r '.[]?' 2>/dev/null)
-            args="${args% }"
 
             # 1) command 자체 존재? (절대경로 또는 PATH)
             if [[ "$command" == /* || "$command" == "$HOME"/* ]]; then
@@ -104,7 +102,7 @@ jq -c '.servers[]' "$MCP_JSON" | while read -r srv; do
             missing=$(verify_paths "$args_json")
             if [[ -n "$missing" ]]; then
                 # 원본 args에 {{VAR}} placeholder 있었나 확인 (있으면 env 미정의 가능성)
-                placeholders=$(echo "$args_json" | jq -r '.[]?' 2>/dev/null | grep -oE '\{\{[A-Z_]+\}\}' | sort -u | tr '\n' ' ')
+                placeholders=$(echo "$args_json" | jq -r '.[]?' 2>/dev/null | grep -oE '\{\{[A-Za-z_][A-Za-z0-9_]*\}\}' | sort -u | tr '\n' ' ')
 
                 printf '  %s⚠%s %s — 의존 경로가 이 PC에 없음:\n' "$C_WARN" "$C_OFF" "$name"
                 echo -e "$missing" | sed "s|^|    ${C_WARN}- ${C_OFF}|"
@@ -124,8 +122,8 @@ jq -c '.servers[]' "$MCP_JSON" | while read -r srv; do
                 continue
             fi
 
-            printf '  %s+%s %s (stdio): %s %s\n' "$C_ADD" "$C_OFF" "$name" "$command" "$args"
-            claude mcp add "$name" --scope "$scope" -- $command $args >/dev/null 2>&1 || \
+            printf '  %s+%s %s (stdio): %s %s\n' "$C_ADD" "$C_OFF" "$name" "$command" "${args_arr[*]}"
+            claude mcp add "$name" --scope "$scope" -- "$command" "${args_arr[@]}" >/dev/null 2>&1 || \
                 printf '    %s(등록 실패)%s\n' "$C_DIM" "$C_OFF"
             ;;
         http|sse)

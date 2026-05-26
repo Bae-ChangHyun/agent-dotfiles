@@ -16,18 +16,20 @@ if [[ ! -f "$CONFIG" ]]; then
 fi
 
 log "Manifest에 선언된 서버:"
-grep -E '^\[mcp_servers\.[^.]+\]' "$MANIFEST" | sed 's/^/  /'
+grep -E '^\[mcp_servers\.[^.]+\]' "$MANIFEST" 2>/dev/null | sed 's/^/  /' || log "  (manifest에 선언 없음)"
 
 log ""
 log "config.toml에 실제 적용된 서버:"
-grep -E '^\[mcp_servers\.[^.]+\]' "$CONFIG" | sed 's/^/  /'
+grep -E '^\[mcp_servers\.[^.]+\]' "$CONFIG" | sed 's/^/  /' || log "  (없음)"
 
-# refero 토큰 검증
+# 시크릿 복호화 검증 — chezmoi 템플릿 표기({{ ... }})가 남아있으면 미복호화
 log ""
-if grep -q 'Bearer mcp-' "$CONFIG"; then
-    log "✓ refero Bearer 토큰 복호화 성공"
+if grep -qE '\{\{[^}]*decrypt[^}]*\}\}' "$CONFIG"; then
+    log "❌ 시크릿 미복호화 — '{{ ... decrypt ... }}' 표기가 config.toml에 남아있음"
+    log "   → age 마스터 키 확인: ~/.config/chezmoi/key.txt"
+    log "   → 다시 적용: chezmoi apply ~/.codex/config.toml"
 else
-    log "❌ refero 토큰 미적용. 'chezmoi apply ~/.codex/config.toml' 다시 시도"
+    log "✓ 시크릿 복호화 정상"
 fi
 
 log "✓ Codex MCP 점검 완료"
