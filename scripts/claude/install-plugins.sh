@@ -19,9 +19,16 @@ fi
 command -v jq >/dev/null 2>&1 || { echo "  ✗ jq 필요"; exit 1; }
 
 # ---- 마켓플레이스 sync ----
-# grep -v으로 빈 줄 제거 — comm은 비어있는 입력에 echo "" 한 줄을 받으면 오작동
+# 빈 manifest는 "관리 안 함" 의미. 절대로 기존 플러그인/마켓을 자동 삭제하지 않음.
+# 사용자가 의도적으로 비웠을 수도, 첫 사용 직후일 수도 있어서 destructive uninstall 위험.
 WANT_MKT=$(jq -r '.marketplaces[].name // empty' "$MARKETPLACES" | sort -u | (grep -v '^$' || true) || true)
 HAVE_MKT=$(claude plugin marketplace list 2>/dev/null | awk -F'❯ ' '/❯ /{print $2}' | sort -u | (grep -v '^$' || true) || true)
+
+# manifest 비어있으면 sync 자체 skip (안전 가드)
+if [[ -z "$WANT_MKT" ]] && [[ -z "$(grep -vE '^[[:space:]]*(#|$)' "$PLUGINS" 2>/dev/null)" ]]; then
+    printf '  %s⊘%s manifest 비어있음 → sync skip (destructive uninstall 방지)\n' "$C_DIM" "$C_OFF"
+    exit 0
+fi
 
 # counter 변수 제거 (pipe subshell이라 부모에 반영 안 되므로 미신뢰)
 to_add_mkt=$(comm -23 <(printf '%s\n' "$WANT_MKT" | (grep -v '^$' || true)) <(printf '%s\n' "$HAVE_MKT" | (grep -v '^$' || true)))

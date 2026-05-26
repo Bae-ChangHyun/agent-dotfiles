@@ -2,6 +2,7 @@
 # (이 repo 안에는 있지만 홈 디렉토리에 깔리지 않음)
 
 README.md
+LICENSE
 bootstrap.sh
 .gitignore
 docs/**

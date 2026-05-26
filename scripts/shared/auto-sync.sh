@@ -100,8 +100,25 @@ pull_step() {
     fi
 
     section "🏠" "APPLY — chezmoi → ~/.claude/, ~/.codex/"
-    local apply_out
-    apply_out=$(CHEZMOI_SKIP_BOOTSTRAP=1 chezmoi apply --force 2>&1) || true
+    # 로컬 미동기 변경 가드: 홈에 push 안 된 변경이 있으면 위험 (chezmoi apply --force가 덮어씀)
+    # chezmoi re-add --dry-run 결과 있음 = 홈이 dotfiles에 없는 내용 가짐. DSYNC_FORCE_APPLY=1로 무시 가능.
+    if [[ "${DSYNC_FORCE_APPLY:-0}" != "1" ]]; then
+        local readd_dry
+        readd_dry=$(chezmoi re-add --dry-run 2>&1 | grep -vE '^$' | head -3 || true)
+        if [[ -n "$readd_dry" ]]; then
+            warn "홈에 push 안 된 변경이 있는데 apply --force 시 덮어쓰임 — abort"
+            echo "$readd_dry" | sed 's/^/    /'
+            warn "  → 'dsync push' 먼저, 또는 DSYNC_FORCE_APPLY=1 dsync pull 로 강제"
+            return 1
+        fi
+    fi
+    local apply_out apply_rc=0
+    apply_out=$(CHEZMOI_SKIP_BOOTSTRAP=1 chezmoi apply --force 2>&1) || apply_rc=$?
+    if [[ $apply_rc -ne 0 ]]; then
+        err "chezmoi apply 실패 (rc=$apply_rc) — 이하 단계 중단"
+        echo "$apply_out" | head -10 | sed 's/^/    /'
+        return 1
+    fi
     if [[ -z "$apply_out" ]]; then
         ok "변경 없음"
     else
