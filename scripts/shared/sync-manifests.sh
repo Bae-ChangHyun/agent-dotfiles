@@ -129,10 +129,16 @@ if [[ -f "$SRC_MCP" ]]; then
         'sk-[A-Za-z0-9_-]{16,}'         # OpenAI/Anthropic style
         'ghp_[A-Za-z0-9]{36}'           # GitHub PAT
         'gho_[A-Za-z0-9]{36}'
-        '[Tt]oken["'\'':[:space:]]{0,4}[A-Za-z0-9_./-]{20,}'
-        '[Aa]pi[._-]?[Kk]ey["'\'':[:space:]]{0,4}[A-Za-z0-9_./-]{16,}'
+        'github_pat_[A-Za-z0-9_]{20,}'
+        # URL query / header / JSON / yaml 모든 형식 cover — = : " ' 공백 다 포함
+        '[Tt]oken[=":[:space:]'\''-]{1,4}[A-Za-z0-9_./+-]{16,}'
+        '[Aa]pi[._-]?[Kk]ey[=":[:space:]'\''-]{1,4}[A-Za-z0-9_./+-]{12,}'
+        '[Ss]ecret[._-]?[Kk]ey[=":[:space:]'\''-]{1,4}[A-Za-z0-9_./+-]{12,}'
+        '[Aa]ccess[._-]?[Tt]oken[=":[:space:]'\''-]{1,4}[A-Za-z0-9_./+-]{12,}'
+        '[Pp]assword[=":[:space:]'\''-]{1,4}[^\"[:space:]]{8,}'
         'AKIA[0-9A-Z]{16}'              # AWS
         'xox[abps]-[A-Za-z0-9-]{10,}'   # Slack
+        '-----BEGIN[[:space:]]+[A-Z[:space:]]+PRIVATE KEY-----'
     )
     for pat in "${leak_patterns[@]}"; do
         if grep -qE "$pat" "$OUT_MCP" 2>/dev/null; then
