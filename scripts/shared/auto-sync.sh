@@ -306,8 +306,6 @@ case "$MODE" in
     rm|remove)
         target="${2:-}"
         [[ -z "$target" ]] && { echo "Usage: dsync rm <absolute-path>"; exit 1; }
-        # 상대경로 거부 — script 시작에서 cd "$REPO" 했으므로 $PWD가 repo 안. 위험.
-        # 사용자 의도가 명확하도록 절대경로 또는 ~/ 시작만 허용.
         if [[ "$target" == \~/* ]]; then
             target="$HOME/${target#\~/}"
         fi
@@ -315,9 +313,24 @@ case "$MODE" in
             echo "❌ 절대경로 또는 ~/ 시작 필요. 예: dsync rm ~/.claude/skills/old"
             exit 1
         fi
-        # $HOME 밖이면 거부 (실수 방지)
+        # trailing slash 제거 후 비교
+        target="${target%/}"
+        # $HOME 자체 또는 dangerous 디렉토리 거부 — rm -rf ~ 방지
+        case "$target" in
+            "" | "/" | "$HOME" | "$HOME/" | "/Users" | "/home" | "/root" | "/etc" | "/var" | "/usr" | "/bin" | "/sbin" | "/opt" | "/tmp")
+                echo "❌ 보호된 경로 — 거부: $target"
+                exit 1
+                ;;
+        esac
+        # $HOME 하위인지 명시 검증 (절대경로 분해 후 prefix 체크)
         if [[ "$target" != "$HOME"/* ]]; then
-            echo "❌ $HOME 밖 경로는 거부: $target"
+            echo "❌ $HOME 하위 경로만 허용. 거부: $target"
+            exit 1
+        fi
+        # 최소 2단계 깊이 (~/foo는 OK, ~/는 reject)
+        rel="${target#$HOME/}"
+        if [[ -z "$rel" || "$rel" == . || "$rel" == .. ]]; then
+            echo "❌ $HOME 자체/상대경로 거부: $target"
             exit 1
         fi
         section "🗑️ " "REMOVE: $target"
