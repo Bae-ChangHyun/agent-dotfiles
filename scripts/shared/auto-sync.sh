@@ -337,11 +337,24 @@ case "$MODE" in
             echo "❌ realpath 후 $HOME 밖: $canonical_target (원본: $target)"
             exit 1
         fi
-        # 최소 2단계 깊이
+        # 위험 경로 거부
         rel="${canonical_target#$canonical_home/}"
         if [[ -z "$rel" || "$rel" == . || "$rel" == .. || "$rel" == */.. || "$rel" == ../* || "$rel" == *..* ]]; then
             echo "❌ $HOME 자체/위험 경로 거부: $rel"
             exit 1
+        fi
+        # HOME 직하 핵심 디렉토리 자체 삭제 거부 (rel에 / 없는 경우)
+        if [[ "$rel" != */* ]]; then
+            case "$rel" in
+                .ssh | .claude | .codex | .config | .local | .gnupg | .aws | .docker | .kube | .gitconfig | \
+                Documents | Desktop | Downloads | Pictures | Music | Videos | Library | Project)
+                    echo "❌ HOME 직하 핵심 디렉토리 삭제 거부: ~/$rel (하위 path 명시 필요)"
+                    exit 1
+                    ;;
+            esac
+            # 그 외도 일단 한 번 더 경고 (HOME 직하)
+            echo "⚠ HOME 직하 1단계 path — 정말 삭제? (5초 후 진행, Ctrl+C로 취소)"
+            sleep 5
         fi
         # 검증은 정규화된 path로, 실제 삭제는 원본 path 사용 (symlink 자체만 제거하고 target은 보존)
         section "🗑️ " "REMOVE: $target"
