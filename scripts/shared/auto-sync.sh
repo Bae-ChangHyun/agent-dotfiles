@@ -322,15 +322,17 @@ case "$MODE" in
                 exit 1
                 ;;
         esac
-        # ../ 또는 symlink로 HOME 밖 탈출 방지 — realpath로 정규화 후 prefix 검증
-        # macOS는 -m 옵션 없을 수 있어 단순 realpath만
-        canonical_target=$(realpath -m "$target" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$target" 2>/dev/null || echo "")
+        # parent 정규화로 HOME 밖 탈출 방지 (target 자체는 symlink일 수 있으므로 follow 안 함)
+        # macOS realpath은 -m 없을 수 있어 python3 fallback
+        parent_dir=$(dirname "$target")
+        canonical_parent=$(realpath -m "$parent_dir" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$parent_dir" 2>/dev/null || echo "")
         canonical_home=$(realpath -m "$HOME" 2>/dev/null || python3 -c "import os; print(os.path.realpath('$HOME'))" 2>/dev/null || echo "$HOME")
-        if [[ -z "$canonical_target" || -z "$canonical_home" ]]; then
+        if [[ -z "$canonical_parent" || -z "$canonical_home" ]]; then
             echo "❌ 경로 정규화 실패: $target"
             exit 1
         fi
-        # 정규화된 경로가 HOME 하위인지 명시 검증
+        # 정규화된 parent + basename 이 HOME 하위인지
+        canonical_target="$canonical_parent/$(basename "$target")"
         if [[ "$canonical_target" != "$canonical_home"/* ]]; then
             echo "❌ realpath 후 $HOME 밖: $canonical_target (원본: $target)"
             exit 1
@@ -341,12 +343,15 @@ case "$MODE" in
             echo "❌ $HOME 자체/위험 경로 거부: $rel"
             exit 1
         fi
-        # 실제 삭제 대상은 정규화된 경로
-        target="$canonical_target"
+        # 검증은 정규화된 path로, 실제 삭제는 원본 path 사용 (symlink 자체만 제거하고 target은 보존)
         section "🗑️ " "REMOVE: $target"
-        # 안전 순서: chezmoi forget 먼저, 그 다음 rm
         chezmoi forget --force "$target" >/dev/null 2>&1 || true
-        rm -rf "$target"
+        # symlink면 unlink로 링크만 제거. 실제 디렉토리면 rm -rf.
+        if [[ -L "$target" ]]; then
+            rm -f "$target"
+        else
+            rm -rf "$target"
+        fi
         cd "$REPO"
         git add -A
         if [[ -z "$(git status --porcelain)" ]]; then
