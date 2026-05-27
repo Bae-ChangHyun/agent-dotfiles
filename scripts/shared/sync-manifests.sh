@@ -121,6 +121,31 @@ if [[ -f "$SRC_MCP" ]]; then
     mv "$tmp_json" "$OUT_MCP"
     n=$(jq '.servers | length' "$OUT_MCP")
     printf '  %s✓%s MCP 서버 (Claude): %d개\n' "$C_OK" "$C_OFF" "$n"
+
+    # 토큰 누출 가드 — args/url에 흔한 토큰 패턴 있으면 경고 + push 차단
+    # 사용자가 본인 환경에서 ~/.claude.json의 mcpServers args에 토큰 박아두는 케이스 방지
+    leak_patterns=(
+        '[Bb]earer[[:space:]]+[A-Za-z0-9_./-]{12,}'
+        'sk-[A-Za-z0-9_-]{16,}'         # OpenAI/Anthropic style
+        'ghp_[A-Za-z0-9]{36}'           # GitHub PAT
+        'gho_[A-Za-z0-9]{36}'
+        '[Tt]oken["'\'':[:space:]]{0,4}[A-Za-z0-9_./-]{20,}'
+        '[Aa]pi[._-]?[Kk]ey["'\'':[:space:]]{0,4}[A-Za-z0-9_./-]{16,}'
+        'AKIA[0-9A-Z]{16}'              # AWS
+        'xox[abps]-[A-Za-z0-9-]{10,}'   # Slack
+    )
+    for pat in "${leak_patterns[@]}"; do
+        if grep -qE "$pat" "$OUT_MCP" 2>/dev/null; then
+            printf '  %s⚠ TOKEN LEAK 의심%s — manifests/claude/mcp.json에 평문 토큰 패턴 감지!\n' "$C_DIM" "$C_OFF" >&2
+            printf '       %s패턴: %s%s\n' "$C_DIM" "$pat" "$C_OFF" >&2
+            printf '       %sgit push 전 해당 토큰을 secrets/<name>.age로 분리 후 manifest에서 제거%s\n' "$C_DIM" "$C_OFF" >&2
+            printf '       %s또는 ~/.config/agent-dotfiles/env에 변수 정의 후 placeholder로%s\n' "$C_DIM" "$C_OFF" >&2
+            # 의도적 차단: manifest를 0 size로 만들어 sync 중단
+            : > "$OUT_MCP"
+            echo '{"$comment": "TOKEN LEAK 감지로 sync 중단. ~/.claude.json mcpServers의 토큰 분리 필요.", "servers": []}' > "$OUT_MCP"
+            break
+        fi
+    done
 fi
 
 printf '  %sCodex MCP는 ~/.codex/config.toml 안에 있어서 chezmoi re-add로 자동 sync%s\n' "$C_DIM" "$C_OFF"

@@ -322,17 +322,27 @@ case "$MODE" in
                 exit 1
                 ;;
         esac
-        # $HOME 하위인지 명시 검증 (절대경로 분해 후 prefix 체크)
-        if [[ "$target" != "$HOME"/* ]]; then
-            echo "❌ $HOME 하위 경로만 허용. 거부: $target"
+        # ../ 또는 symlink로 HOME 밖 탈출 방지 — realpath로 정규화 후 prefix 검증
+        # macOS는 -m 옵션 없을 수 있어 단순 realpath만
+        canonical_target=$(realpath -m "$target" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$target" 2>/dev/null || echo "")
+        canonical_home=$(realpath -m "$HOME" 2>/dev/null || python3 -c "import os; print(os.path.realpath('$HOME'))" 2>/dev/null || echo "$HOME")
+        if [[ -z "$canonical_target" || -z "$canonical_home" ]]; then
+            echo "❌ 경로 정규화 실패: $target"
             exit 1
         fi
-        # 최소 2단계 깊이 (~/foo는 OK, ~/는 reject)
-        rel="${target#$HOME/}"
-        if [[ -z "$rel" || "$rel" == . || "$rel" == .. ]]; then
-            echo "❌ $HOME 자체/상대경로 거부: $target"
+        # 정규화된 경로가 HOME 하위인지 명시 검증
+        if [[ "$canonical_target" != "$canonical_home"/* ]]; then
+            echo "❌ realpath 후 $HOME 밖: $canonical_target (원본: $target)"
             exit 1
         fi
+        # 최소 2단계 깊이
+        rel="${canonical_target#$canonical_home/}"
+        if [[ -z "$rel" || "$rel" == . || "$rel" == .. || "$rel" == */.. || "$rel" == ../* || "$rel" == *..* ]]; then
+            echo "❌ $HOME 자체/위험 경로 거부: $rel"
+            exit 1
+        fi
+        # 실제 삭제 대상은 정규화된 경로
+        target="$canonical_target"
         section "🗑️ " "REMOVE: $target"
         # 안전 순서: chezmoi forget 먼저, 그 다음 rm
         chezmoi forget --force "$target" >/dev/null 2>&1 || true
