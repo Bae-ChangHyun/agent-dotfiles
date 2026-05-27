@@ -138,10 +138,11 @@ if [[ -f "$SRC_MCP" ]]; then
         '[Pp]assword[=":[:space:]'\''-]{1,4}[^\"[:space:]]{8,}'
         'AKIA[0-9A-Z]{16}'              # AWS
         'xox[abps]-[A-Za-z0-9-]{10,}'   # Slack
-        '-----BEGIN[[:space:]]+[A-Z[:space:]]+PRIVATE KEY-----'
+        'BEGIN[[:space:]]+(RSA[[:space:]]+|DSA[[:space:]]+|EC[[:space:]]+|OPENSSH[[:space:]]+|ENCRYPTED[[:space:]]+)?PRIVATE[[:space:]]+KEY'
     )
     for pat in "${leak_patterns[@]}"; do
-        if grep -qE "$pat" "$OUT_MCP" 2>/dev/null; then
+        # `--` 로 옵션 종료 — 패턴이 `-` 로 시작해도 grep이 옵션으로 해석 안 함
+        if grep -qE -- "$pat" "$OUT_MCP" 2>/dev/null; then
             printf '  %s⚠ TOKEN LEAK 의심%s — manifests/claude/mcp.json에 평문 토큰 패턴 감지!\n' "$C_DIM" "$C_OFF" >&2
             printf '       %s패턴: %s%s\n' "$C_DIM" "$pat" "$C_OFF" >&2
             printf '       %sgit push 전 해당 토큰을 secrets/<name>.age로 분리 후 manifest에서 제거%s\n' "$C_DIM" "$C_OFF" >&2
